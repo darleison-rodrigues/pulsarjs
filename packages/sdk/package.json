@@ -1,0 +1,12 @@
+{
+    "name": "@pulsarjs/sdk",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "build": "esbuild src/index.js --bundle --minify --outfile=dist/p.js --sourcemap --format=iife",
+        "build:dev": "esbuild src/index.js --bundle --outfile=dist/pulsar.js --sourcemap --format=iife"
+    },
+    "devDependencies": {
+        "esbuild": "^0.27.3"
+    }
+}
