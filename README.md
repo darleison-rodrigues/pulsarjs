@@ -60,8 +60,11 @@ pulsarjs/
 ├── packages/
 │   ├── sdk/              # Browser SDK pixel
 │   │   ├── src/
-│   │   │   ├── sentinel.js   # Core SDK (→ p.js build output)
-│   │   │   └── sanitizers.js # PII redaction
+│   │   │   ├── index.js       # Entry point (→ p.js build output)
+│   │   │   ├── core/          # Config, scope, session, capture pipeline
+│   │   │   ├── collectors/    # Errors, network (fetch/XHR), RUM
+│   │   │   ├── integrations/  # SFCC context extraction
+│   │   │   └── utils/         # Sanitizers, environment
 │   │   └── tests/
 │   ├── api/              # Cloudflare Worker API
 │   │   ├── src/
@@ -69,9 +72,8 @@ pulsarjs/
 │   │   │   ├── routes/       # Ingest handler
 │   │   │   ├── middleware/    # Firewall, security, ingestion auth
 │   │   │   ├── lib/          # Rule engine, Slack alerts, logger
-│   │   │   └── workflows/    # Alert, Storage, Quarantine (CF Durable)
+│   │   │   └── workflows/    # Alert, Storage (CF Durable)
 │   │   └── migrations/       # D1 schema
-│   └── shared/           # Shared types
 ├── terraform/            # Cloudflare infrastructure (D1, R2, Queues)
 ├── GEMINI.md             # Engineering manifesto & context
 └── docs/BACKLOG.md       # Product backlog

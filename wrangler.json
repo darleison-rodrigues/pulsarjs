@@ -1,0 +1,171 @@
+{
+	"name": "pulsarjs",
+	"main": "api/src/index.ts",
+	"compatibility_date": "2024-02-03",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"observability": {
+		"enabled": true
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "pulsarjs-db",
+			"database_id": "58fd343c-59dc-4264-9808-f97dde874755",
+			"migrations_dir": "api/migrations"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "DLQ_BUCKET",
+			"bucket_name": "pulsarjs-dlq"
+		}
+	],
+	"vars": {
+		"ENVIRONMENT": "production",
+		"SESSION_SECRET": ""
+	},
+	"env": {
+		"development": {
+			"vars": {
+				"ENVIRONMENT": "development",
+				"SESSION_SECRET": ""
+			},
+			"migrations": [
+				{
+					"tag": "v2",
+					"deleted_classes": [
+						"RateLimiter"
+					]
+				}
+			],
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "pulsarjs-db",
+					"database_id": "58fd343c-59dc-4264-9808-f97dde874755",
+					"migrations_dir": "api/migrations"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "DLQ_BUCKET",
+					"bucket_name": "pulsarjs-dlq"
+				}
+			],
+			"workflows": [
+				{
+					"name": "pulsarjs-alert-workflow",
+					"binding": "ALERT_WORKFLOW",
+					"class_name": "AlertWorkflow"
+				},
+				{
+					"name": "pulsarjs-storage-workflow",
+					"binding": "STORAGE_WORKFLOW",
+					"class_name": "StorageWorkflow"
+				}
+			],
+			"queues": {
+				"producers": [
+					{
+						"binding": "INGESTION_QUEUE",
+						"queue": "pulsarjs-ingestion-queue"
+					},
+					{
+						"binding": "INGESTION_DLQ",
+						"queue": "pulsarjs-ingestion-dlq"
+					}
+				],
+				"consumers": [
+					{
+						"queue": "pulsarjs-ingestion-queue",
+						"max_batch_size": 100,
+						"max_batch_timeout": 5,
+						"max_retries": 3,
+						"dead_letter_queue": "pulsarjs-ingestion-dlq"
+					},
+					{
+						"queue": "pulsarjs-ingestion-dlq",
+						"max_batch_size": 100,
+						"max_batch_timeout": 5,
+						"max_retries": 1
+					}
+				]
+			}
+		},
+		"production": {
+			"vars": {
+				"ENVIRONMENT": "production",
+				"SESSION_SECRET": ""
+			},
+			"migrations": [
+				{
+					"tag": "v2",
+					"deleted_classes": [
+						"RateLimiter"
+					]
+				}
+			],
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "pulsarjs-db",
+					"database_id": "58fd343c-59dc-4264-9808-f97dde874755",
+					"migrations_dir": "api/migrations"
+				}
+			],
+			"routes": [
+				{
+					"pattern": "api.pulsarjs.com",
+					"custom_domain": true
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "DLQ_BUCKET",
+					"bucket_name": "pulsarjs-dlq"
+				}
+			],
+			"workflows": [
+				{
+					"name": "pulsarjs-alert-workflow",
+					"binding": "ALERT_WORKFLOW",
+					"class_name": "AlertWorkflow"
+				},
+				{
+					"name": "pulsarjs-storage-workflow",
+					"binding": "STORAGE_WORKFLOW",
+					"class_name": "StorageWorkflow"
+				}
+			],
+			"queues": {
+				"producers": [
+					{
+						"binding": "INGESTION_QUEUE",
+						"queue": "pulsarjs-ingestion-queue"
+					},
+					{
+						"binding": "INGESTION_DLQ",
+						"queue": "pulsarjs-ingestion-dlq"
+					}
+				],
+				"consumers": [
+					{
+						"queue": "pulsarjs-ingestion-queue",
+						"max_batch_size": 100,
+						"max_batch_timeout": 5,
+						"max_retries": 3,
+						"dead_letter_queue": "pulsarjs-ingestion-dlq"
+					},
+					{
+						"queue": "pulsarjs-ingestion-dlq",
+						"max_batch_size": 100,
+						"max_batch_timeout": 5,
+						"max_retries": 1
+					}
+				]
+			}
+		}
+	}
+}
