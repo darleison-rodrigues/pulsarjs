@@ -1,15 +1,17 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <title>Sentinel Consent Verification</title>
+    <title>PulsarJS Consent Verification</title>
 </head>
+
 <body>
-    <h1>Sentinel Consent Test</h1>
+    <h1>PulsarJS Consent Test</h1>
     <div id="logs"></div>
     <div id="status">Running tests...</div>
 
     <script type="module">
-        import Sentinel from '../src/sentinel.js';
+        import PulsarJS from '../src/pulsar.js';
 
         // Mock Fetch
         window.fetches = [];
@@ -34,33 +36,33 @@
                 // Test 1: Default Init (Disabled)
                 log('1. Testing Default Init...');
                 window.fetches = []; // Reset
-                Sentinel.init({ clientId: 'test-client' });
-                
-                if (Sentinel.enabled) throw new Error('Sentinel should be disabled by default!');
-                
-                await Sentinel._capture({ message: 'Test 1' });
+                PulsarJS.init({ clientId: 'test-client' });
+
+                if (PulsarJS.enabled) throw new Error('PulsarJS should be disabled by default!');
+
+                await PulsarJS._capture({ message: 'Test 1' });
                 if (window.fetches.length > 0) throw new Error('Capture ran while disabled!');
                 log('PASS: Default Init (Disabled)');
 
                 // Test 2: Enable
                 log('2. Testing Enable()...');
-                Sentinel.enable();
-                if (!Sentinel.enabled) throw new Error('Sentinel should be enabled!');
-                
-                await Sentinel._capture({ message: 'Test 2', severity: 'error' });
+                PulsarJS.enable();
+                if (!PulsarJS.enabled) throw new Error('PulsarJS should be enabled!');
+
+                await PulsarJS._capture({ message: 'Test 2', severity: 'error' });
                 // We mock _capture is async in our mental model, but it calls fetch which is async.
                 // _capture itself is async.
-                
+
                 if (window.fetches.length === 0) throw new Error('Capture failed while enabled!');
                 log('PASS: Enable() works');
 
                 // Test 3: Disable
                 log('3. Testing Disable()...');
                 window.fetches = [];
-                Sentinel.disable();
-                if (Sentinel.enabled) throw new Error('Sentinel should be disabled!');
-                
-                await Sentinel._capture({ message: 'Test 3' });
+                PulsarJS.disable();
+                if (PulsarJS.enabled) throw new Error('PulsarJS should be disabled!');
+
+                await PulsarJS._capture({ message: 'Test 3' });
                 if (window.fetches.length > 0) throw new Error('Capture ran after disable()!');
                 log('PASS: Disable() works');
 
@@ -68,7 +70,7 @@
                 // Hard to mock navigator.doNotTrack reliably in all browsers writable wise, 
                 // but we can check the logic in code review.
                 // Here we just check properties.
-                
+
                 document.getElementById('status').textContent = 'ALL TESTS PASSED';
                 document.getElementById('status').style.color = 'green';
 
@@ -84,4 +86,5 @@
 
     </script>
 </body>
+
 </html>

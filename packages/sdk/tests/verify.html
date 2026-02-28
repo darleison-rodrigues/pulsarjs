@@ -1,22 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <title>SentinelKit SDK Verification</title>
+    <title>PulsarJS SDK Verification</title>
 </head>
+
 <body>
-    <h1>SentinelKit SDK Test</h1>
+    <h1>PulsarJS SDK Test</h1>
     <p>Open Console and Network tab.</p>
-    
+
     <button onclick="triggerCrash()">Trigger JS Crash</button>
     <button onclick="triggerApiFail()">Trigger API 404</button>
     <button onclick="triggerApiSuccess()">Trigger API 200 (Ignored)</button>
 
     <script type="module">
-        import Sentinel from './src/sentinel.js';
+        import PulsarJS from './src/pulsar.js';
 
         // Init with fake key
-        Sentinel.init({
+        PulsarJS.init({
             clientId: 'dev-verification',
             endpoint: 'http://localhost:8000/ingest', // Point to local orchestrator
             signingKey: 'dev_secret_key_change_in_production', // Matches backend default
@@ -24,17 +26,18 @@
             storefrontType: 'PWA_KIT'
         });
 
-        window.triggerCrash = function() {
+        window.triggerCrash = function () {
             throw new Error("Simulated JS Crash for Verification");
         }
 
-        window.triggerApiFail = function() {
+        window.triggerApiFail = function () {
             fetch('/baskets/mock-fail', { method: 'POST' }); // 404
         }
-        
-        window.triggerApiSuccess = function() {
+
+        window.triggerApiSuccess = function () {
             fetch('/baskets/mock-success'); // 200 (should not report)
         }
     </script>
 </body>
+
 </html>
