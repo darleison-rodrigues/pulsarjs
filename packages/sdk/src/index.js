@@ -139,6 +139,42 @@ const Pulsar = (function () {
 
             getScope: function () { return globalScope; },
 
+            /**
+             * Direct context helpers (GEMINI.md compliance)
+             */
+            setTag: function (key, value) { globalScope.setTag(key, value); },
+            setUser: function (id, email, metadata = {}) {
+                globalScope.setUser({ id, email, ...metadata });
+            },
+            addBreadcrumb: function (category, message, level = 'info') {
+                globalScope.addBreadcrumb({ category, message, level });
+            },
+
+            /**
+             * returns a snapshot of the current session context for the Actor (agent.js)
+             */
+            getContext: function () {
+                const scopeData = globalScope.getScopeData();
+                return {
+                    tags: scopeData.tags,
+                    user: scopeData.user,
+                    sessionID: sessionID,
+                    config: { clientId: config.clientId, environment: config.environment }
+                };
+            },
+
+            /**
+             * General purpose event pusher (used by Agent to log interactions)
+             */
+            push: function (event) {
+                if (!enabled) return;
+                pipeline.capture({
+                    type: event.type || "agent_event",
+                    action: event.action || "push",
+                    ...event
+                });
+            },
+
             captureException: function (error, metadata = {}) {
                 pipeline.capture({
                     error_type: "CUSTOM_EXCEPTION",

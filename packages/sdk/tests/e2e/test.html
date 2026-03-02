@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>PulsarJS E2E Testing</title>
+</head>
+
+<body>
+    <h1>Testing Pulsar SDK</h1>
+    <script src="../../dist/pulsar.dev.js"></script>
+    <script>
+        // Initialize the SDK in dev mode
+        Pulsar.init({
+            clientId: 'test-client-id',
+            siteId: 'test-site-id',
+            endpoint: '/ingest',
+            secret: 'test-secret-key-for-hmac',
+            testMode: true // Fast flush for testing
+        });
+
+        // Trigger a fake event to guarantee a payload is queued and sent
+        setTimeout(() => {
+            console.log('Test.html: Calling capture...');
+            try {
+                Pulsar.captureException(new Error("Test error"), { source: "e2e" });
+                Pulsar.flush();
+                console.log('Test.html: Capture successful. Flush should have been called automatically.');
+            } catch (e) {
+                console.error('Test.html: Error triggering capture/flush', e);
+            }
+        }, 100);
+    </script>
+</body>
+
+</html>
