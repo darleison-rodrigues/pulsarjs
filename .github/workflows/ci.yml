@@ -45,3 +45,12 @@ jobs:
 
       - name: Build SDK bundle
         run: pnpm --filter "@pulsarjs/sdk" run build
+
+      - name: Run Unit Tests (Vitest)
+        run: pnpm --filter "@pulsarjs/sdk" test
+
+      - name: Install Playwright Browsers
+        run: pnpm --filter "@pulsarjs/sdk" exec playwright install --with-deps chromium
+
+      - name: Run E2E Tests (Playwright)
+        run: pnpm --filter "@pulsarjs/sdk" test:e2e

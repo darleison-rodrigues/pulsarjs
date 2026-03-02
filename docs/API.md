@@ -24,7 +24,7 @@ The SDK generates signatures automatically when `secret` is configured.
 ## SDK Quick Start
 
 ```html
-<script src="https://api.pulsarjs.com/p.js"></script>
+<script src="https://api.pulsarjs.com/pulsar.js"></script>
 <script>
     Pulsar.init({
         clientId: 'your-tenant-id',
@@ -148,7 +148,7 @@ Primary telemetry sink. Returns `202 Accepted`.
 ## Pipeline Architecture
 
 ```
-SDK (p.js) → POST /v1/ingest → CF Queue → Batch Consumer
+SDK (pulsar.js) → POST /v1/ingest → CF Queue → Batch Consumer
                                               ├── StorageWorkflow (D1 + R2 + BigQuery)
                                               └── AlertWorkflow (Email / Slack)
 ```
@@ -197,7 +197,7 @@ Pulsar.init({
 ### SiteGenesis (ISML)
 
 ```html
-<script src="https://api.pulsarjs.com/p.js"></script>
+<script src="https://api.pulsarjs.com/pulsar.js"></script>
 <script>
     Pulsar.init({
         clientId: 'YOUR_CLIENT_ID',

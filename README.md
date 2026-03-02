@@ -18,7 +18,7 @@ pulsarjs/
 ├── packages/
 │   └── sdk/              # Browser SDK pixel
 │       ├── src/
-│       │   ├── index.js       # Entry point (→ p.js build output)
+│       │   ├── index.js       # Entry point (→ pulsar.js build output)
 │       │   ├── core/          # Config, scope, session, capture pipeline
 │       │   ├── collectors/    # Errors, network (fetch/XHR), RUM
 │       │   ├── integrations/  # SFCC context extraction
@@ -34,7 +34,7 @@ pulsarjs/
 
 ```html
 <!-- Drop into any SFCC storefront -->
-<script src="https://api.pulsarjs.com/p.js"></script>
+<script src="https://api.pulsarjs.com/pulsar.js"></script>
 <script>
   Pulsar.init({
     clientId: 'your-project-key',
