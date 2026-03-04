@@ -36,6 +36,8 @@ const Pulsar = (function () {
             _droppedEventsCount: 0,
             droppedSinceLastFlush: 0,
             firstDropTimestamp: null,
+            firstDropUrl: null,  // URL captured at drop time (accurate in SPAs)
+            firstDropSessionId: null,  // session captured at drop time
             queue: [],
 
             // Original references for teardown
@@ -51,13 +53,15 @@ const Pulsar = (function () {
             extractSFCCContext: () => extractSFCCContext(extractCampaigns),
             captureEnvironment: captureEnvironment,
             capture: null, // set after pipeline creation
-            flush: null    // set after pipeline creation
+            flush: null, // set after pipeline creation
+            flushOnHide: null  // set after pipeline creation — bypasses isFlushing for page-hide
         };
 
         // Create capture pipeline and bind to state
         const pipeline = createCapturePipeline(state);
         state.capture = pipeline.capture;
         state.flush = pipeline.flush;
+        state.flushOnHide = pipeline.flushOnHide;
 
         // Public API
         return {
@@ -96,7 +100,12 @@ const Pulsar = (function () {
                     state.visibilityHandler = () => {
                         if (document.visibilityState === 'hidden') {
                             captureRUM(state);
-                            pipeline.flush();
+                            // flushOnHide bypasses the isFlushing concurrency guard.
+                            // This is intentional: on page hide, events sitting in
+                            // state.queue may have no scheduled flush (the debounce
+                            // already fired, isFlushing is true from a slow retry).
+                            // sendBeacon is fire-and-forget; we MUST call it here.
+                            pipeline.flushOnHide();
                         }
                     };
                     document.addEventListener('visibilitychange', state.visibilityHandler);
