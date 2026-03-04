@@ -2,15 +2,22 @@
  * PulsarJS — Capture & Flush Pipeline
  * Queue management, deduplication, HMAC signing, beacon delivery, retry logic.
  *
- * PUL-030: flush() must NEVER call capture() — doing so creates infinite recursion.
- *          On exhausted retries, failed events are rescued back onto the queue.
+ * Fixed in this file:
+ *   PUL-030 — flush() never calls capture() (rescue pattern)
+ *   PUL-030 — isFlushing guard prevents concurrent flush corruption
+ *   PUL-030 — Race condition: events arriving during flush awaits are preserved
+ *   PUL-030 — sendBeacon is now the primary delivery path (signature in URL)
+ *   PUL-030 — Rescue slice order: new events take priority over rescued batch
+ *   PUL-030 — 200ms debounce collapses burst events into a single request
+ *   PUL-032 — generateSignature takes debug as parameter (no module-level state ref)
  */
 import { Sanitizers } from '../utils/sanitizers.js';
 
 const MAX_QUEUE_SIZE = 50;
 
 /**
- * Simple string hash for deduplication fingerprinting.
+ * Simple djb2-variant hash for deduplication fingerprinting only.
+ * NOT suitable for cryptographic or security purposes.
  */
 export function hash(str) {
     let h = 0;
@@ -23,6 +30,9 @@ export function hash(str) {
 
 /**
  * Generate HMAC-SHA256 signature for payload authentication.
+ * @param {object} payload  - The batch payload to sign.
+ * @param {string} secret   - HMAC secret key.
+ * @param {boolean} debug   - Whether to log errors (PUL-032: passed as arg, never reads module state).
  */
 export async function generateSignature(payload, secret, debug = false) {
     if (!secret || typeof crypto === 'undefined' || !crypto.subtle) return null;
@@ -36,22 +46,38 @@ export async function generateSignature(payload, secret, debug = false) {
         const signature = await crypto.subtle.sign('HMAC', key, msgData);
         return btoa(String.fromCharCode(...new Uint8Array(signature)));
     } catch (e) {
-        // PUL-032: `debug` is now a parameter — safe regardless of module init order.
         if (debug) console.error('[Pulsar] HMAC generation failed', e);
         return null;
     }
 }
 
-// Module-level state reference (set by createCapturePipeline)
+// Module-level state reference (set by createCapturePipeline).
+// PUL-032 tracks full elimination of this singleton. For now it is constrained:
+// generateSignature no longer touches it, and flush() only reads it after init.
 let state = null;
 
 /**
  * Create the capture pipeline bound to shared SDK state.
+ * @returns {{ capture: Function, flush: Function }}
  */
 export function createCapturePipeline(sharedState) {
     state = sharedState;
 
     const _fingerprintCache = new Map();
+
+    // --- Flush scheduling state ---
+    let flushTimer = null;   // debounce handle
+    let isFlushing = false;  // concurrency guard: only one flush in flight at a time
+
+    /**
+     * Schedule a debounced flush (200 ms window).
+     * Collapses burst captures (e.g. checkout page throwing 5 errors at once) into
+     * a single network request instead of a request-per-event storm.
+     */
+    function scheduleFlush() {
+        clearTimeout(flushTimer);
+        flushTimer = setTimeout(flush, 200);
+    }
 
     async function capture(errorData, localScope = state.globalScope, bypassDedupe = false) {
         if (!state.enabled || !state.isInitialized) return;
@@ -95,8 +121,9 @@ export function createCapturePipeline(sharedState) {
         // Async beforeSend with timeout circuit breaker
         if (typeof state.config.beforeSend === 'function') {
             try {
+                const timeoutMs = state.config.beforeSendTimeout || 2000;
                 const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('timeout')), state.config.beforeSendTimeout)
+                    setTimeout(() => reject(new Error('timeout')), timeoutMs)
                 );
                 payload = await Promise.race([
                     Promise.resolve(state.config.beforeSend(payload)),
@@ -104,7 +131,7 @@ export function createCapturePipeline(sharedState) {
                 ]);
             } catch (e) {
                 if (e.message === 'timeout') {
-                    if (state.config.debug) console.warn('[Pulsar] beforeSend timed out after ' + state.config.beforeSendTimeout + 'ms');
+                    if (state.config.debug) console.warn('[Pulsar] beforeSend timed out after ' + (state.config.beforeSendTimeout || 2000) + 'ms');
                     if (state.config.allowUnconfirmedConsent) {
                         payload.metadata = payload.metadata || {};
                         payload.metadata.consent_unconfirmed = true;
@@ -130,116 +157,169 @@ export function createCapturePipeline(sharedState) {
             state.droppedSinceLastFlush++;
             if (!state.firstDropTimestamp) state.firstDropTimestamp = new Date().toISOString();
         }
-        flush();
+
+        // Debounced flush — never call flush() directly from capture().
+        scheduleFlush();
     }
 
+    /**
+     * Deliver all queued events to the ingest endpoint.
+     *
+     * Concurrency: protected by isFlushing — a second call while a flush is in
+     * flight returns immediately. The debounce in scheduleFlush() will re-trigger
+     * once the current flush settles if new events arrived in the meantime.
+     *
+     * Race condition: state.queue is cleared into a local snapshot BEFORE any
+     * awaits. Events pushed by capture() during the async window accumulate in
+     * a fresh state.queue and are preserved regardless of delivery outcome.
+     */
     async function flush() {
+        // Concurrency guard — one flush in flight at a time.
+        if (isFlushing) return;
         if (state.queue.length === 0 && state.droppedSinceLastFlush === 0) return;
 
-        // HMAC is the only auth mechanism now. No session token needed.
         if (!state.config.secret) {
             if (state.config.debug) console.warn('[Pulsar] No HMAC secret configured. Cannot flush.');
             return;
         }
 
-        // Queue overflow synthetic event
-        if (state.droppedSinceLastFlush > 0) {
-            state.queue.unshift({
+        isFlushing = true;
+        flushTimer = null; // we are running now, clear the pending timer id
+
+        try {
+            // Inject synthetic QUEUE_OVERFLOW sentinel if events were dropped.
+            if (state.droppedSinceLastFlush > 0) {
+                state.queue.unshift({
+                    client_id: state.config.clientId,
+                    storefront_type: state.config.storefrontType,
+                    site_id: state.config.siteId,
+                    session_id: state.sessionID,
+                    url: window.location.href,
+                    timestamp: new Date().toISOString(),
+                    error_type: 'QUEUE_OVERFLOW',
+                    message: `Dropped ${state.droppedSinceLastFlush} events due to queue limits`,
+                    metadata: { dropped_count: state.droppedSinceLastFlush, first_drop_time: state.firstDropTimestamp },
+                    dropped_events: state.droppedEventsCount,
+                    severity: 'warning',
+                    is_blocking: false
+                });
+                state.droppedSinceLastFlush = 0;
+                state.firstDropTimestamp = null;
+            }
+
+            // ── Race condition fix ────────────────────────────────────────────────────
+            // Snapshot the queue NOW, then immediately reset state.queue to an empty
+            // array. Any capture() calls that fire during the async operations below
+            // will push into a fresh queue and will NOT be lost, regardless of whether
+            // this flush succeeds or fails.
+            const batch = {
+                pulsar_version: '1.0.0',
                 client_id: state.config.clientId,
-                storefront_type: state.config.storefrontType,
                 site_id: state.config.siteId,
-                session_id: state.sessionID,
-                url: window.location.href,
                 timestamp: new Date().toISOString(),
-                error_type: "QUEUE_OVERFLOW",
-                message: `Dropped ${state.droppedSinceLastFlush} events due to queue limits`,
-                metadata: { dropped_count: state.droppedSinceLastFlush, first_drop_time: state.firstDropTimestamp },
-                dropped_events: state.droppedEventsCount,
-                severity: "warning",
-                is_blocking: false
-            });
-            state.droppedSinceLastFlush = 0;
-            state.firstDropTimestamp = null;
-        }
+                events: [...state.queue],
+                dropped_events: state.droppedEventsCount
+            };
+            state.queue = []; // new events from here on go into a fresh array
+            // ─────────────────────────────────────────────────────────────────────────
 
-        const payload = {
-            pulsar_version: '1.0.0',
-            client_id: state.config.clientId,
-            site_id: state.config.siteId,
-            timestamp: new Date().toISOString(),
-            events: [...state.queue],
-            dropped_events: state.droppedEventsCount
-        };
+            const signature = await generateSignature(batch, state.config.secret, state.config.debug);
+            const endpoint = state.config.endpoint;
+            const nativeFetch = state.originalFetch || window.fetch;
+            const payloadStr = JSON.stringify(batch);
 
-        state.queue = [];
-
-        const signature = await generateSignature(payload, state.config.secret, state.config.debug);
-        const endpoint = state.config.endpoint;
-        const nativeFetch = state.originalFetch || window.fetch;
-        const payloadStr = JSON.stringify(payload);
-
-        const headers = {
-            'Content-Type': 'application/json',
-            'X-Pulsar-Client-Id': state.config.clientId
-        };
-        if (signature) headers['X-Pulsar-Signature'] = signature;
-
-        let success = false;
-        let retryCount = 0;
-        const maxRetries = 3;
-
-        while (retryCount <= maxRetries && !success) {
-            try {
-                if (retryCount === 0 && !signature && navigator.sendBeacon) {
-                    const blob = new Blob([payloadStr], { type: 'text/plain' });
-                    success = navigator.sendBeacon(endpoint, blob);
+            // ── sendBeacon as primary delivery path ────────────────────────────────
+            // sendBeacon works during page unload and requires no CORS preflight.
+            // The HMAC signature travels as a URL query parameter because the Beacon
+            // API does not support custom request headers.
+            // ─────────────────────────────────────────────────────────────────────
+            if (navigator.sendBeacon) {
+                const beaconUrl = signature
+                    ? `${endpoint}?sig=${encodeURIComponent(signature)}`
+                    : endpoint;
+                const blob = new Blob([payloadStr], { type: 'application/json' });
+                if (navigator.sendBeacon(beaconUrl, blob)) {
+                    // Delivered. Any events that arrived during generateSignature are
+                    // already safely in state.queue for the next flush cycle.
+                    return;
                 }
+                // sendBeacon returned false (queue full, not supported in this context).
+                // Fall through to fetch with retries.
+                if (state.config.debug) console.warn('[Pulsar] sendBeacon rejected. Falling back to fetch.');
+            }
 
-                if (!success) {
+            // ── fetch fallback with retry ──────────────────────────────────────────
+            const headers = {
+                'Content-Type': 'application/json',
+                'X-Pulsar-Client-Id': state.config.clientId
+            };
+            if (signature) headers['X-Pulsar-Signature'] = signature;
+
+            let success = false;
+            const maxRetries = 3;
+
+            for (let attempt = 1; attempt <= maxRetries && !success; attempt++) {
+                try {
                     const res = await nativeFetch(endpoint, {
                         method: 'POST',
-                        headers: headers,
+                        headers,
                         body: payloadStr,
                         keepalive: true
                     });
                     success = res.ok;
+                    if (!success && state.config.debug) {
+                        console.warn(`[Pulsar] Ingest returned HTTP ${res.status} on attempt ${attempt}/${maxRetries}.`);
+                    }
+                } catch (e) {
+                    // Network-level failure (offline, DNS, CORS).
+                    if (state.config.debug) {
+                        console.warn(`[Pulsar] fetch attempt ${attempt}/${maxRetries} failed:`, e.message);
+                    }
                 }
-            } catch (e) {
-                // Network error — will retry
+
+                if (!success && attempt < maxRetries) {
+                    await new Promise(r => setTimeout(r, attempt === 1 ? 500 : 1500));
+                }
             }
 
             if (!success) {
-                retryCount++;
-                if (retryCount <= maxRetries) {
-                    await new Promise(r => setTimeout(r, retryCount === 1 ? 500 : 1500));
-                }
-            }
-        }
-
-        if (!success) {
-            // PUL-030: NEVER call capture() from inside flush() — it causes infinite recursion.
-            // Strategy: log the failure, then rescue the failed batch back onto the front of the
-            // queue so the events survive until the next flush attempt (page hide, next capture, etc.).
-            if (state.config.debug) {
-                console.error(
-                    `[Pulsar] Failed to deliver event batch after ${maxRetries} retries. ` +
-                    `${payload.events.length} event(s) rescued back onto queue.`
-                );
-            }
-
-            // Rescue: prepend failed events back, honouring MAX_QUEUE_SIZE.
-            // We do NOT re-queue the synthetic QUEUE_OVERFLOW event itself to avoid noise.
-            const rescuable = payload.events.filter(e => e.error_type !== 'QUEUE_OVERFLOW');
-            const combined = [...rescuable, ...state.queue];
-            if (combined.length > MAX_QUEUE_SIZE) {
-                const overflow = combined.length - MAX_QUEUE_SIZE;
-                state.droppedEventsCount += overflow;
-                state.queue = combined.slice(0, MAX_QUEUE_SIZE);
+                // ── Event rescue ─────────────────────────────────────────────────────
+                // PUL-030: NEVER call capture() from flush() — infinite recursion.
+                //
+                // Rescue the failed batch by merging it with events that arrived
+                // during the retry window. Priority is RECENCY: newest events survive
+                // if the combined set exceeds MAX_QUEUE_SIZE.
+                //
+                //   state.queue  = events that arrived DURING this flush (newest)
+                //   rescuable    = events from the failed batch        (older)
+                //   combined     = [older…, newer…] — time-ordered oldest→newest
+                //   .slice(-MAX_QUEUE_SIZE) drops oldest when over capacity
+                // ─────────────────────────────────────────────────────────────────────
                 if (state.config.debug) {
-                    console.warn(`[Pulsar] Queue full during rescue — dropped ${overflow} oldest rescued event(s).`);
+                    console.error(
+                        `[Pulsar] Failed to deliver ${batch.events.length} event(s) after ${maxRetries} retries. ` +
+                        `Rescuing back onto queue.`
+                    );
                 }
-            } else {
-                state.queue = combined;
+
+                const rescuable = batch.events.filter(e => e.error_type !== 'QUEUE_OVERFLOW');
+                const combined = [...rescuable, ...state.queue]; // oldest first
+                const overflow = combined.length - MAX_QUEUE_SIZE;
+                if (overflow > 0) {
+                    state.droppedEventsCount += overflow;
+                    state.queue = combined.slice(-MAX_QUEUE_SIZE); // keep newest
+                    if (state.config.debug) {
+                        console.warn(`[Pulsar] Queue full on rescue — dropped ${overflow} oldest event(s).`);
+                    }
+                } else {
+                    state.queue = combined;
+                }
+            }
+        } finally {
+            isFlushing = false;
+            // If new events accumulated while we were flushing, schedule another flush.
+            if (state.queue.length > 0) {
+                scheduleFlush();
             }
         }
     }
