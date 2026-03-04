@@ -1,6 +1,9 @@
 /**
  * PulsarJS — Capture & Flush Pipeline
  * Queue management, deduplication, HMAC signing, beacon delivery, retry logic.
+ *
+ * PUL-030: flush() must NEVER call capture() — doing so creates infinite recursion.
+ *          On exhausted retries, failed events are rescued back onto the queue.
  */
 import { Sanitizers } from '../utils/sanitizers.js';
 
@@ -21,7 +24,7 @@ export function hash(str) {
 /**
  * Generate HMAC-SHA256 signature for payload authentication.
  */
-export async function generateSignature(payload, secret) {
+export async function generateSignature(payload, secret, debug = false) {
     if (!secret || typeof crypto === 'undefined' || !crypto.subtle) return null;
     try {
         const encoder = new TextEncoder();
@@ -33,7 +36,8 @@ export async function generateSignature(payload, secret) {
         const signature = await crypto.subtle.sign('HMAC', key, msgData);
         return btoa(String.fromCharCode(...new Uint8Array(signature)));
     } catch (e) {
-        if (state.config.debug) console.error('[Pulsar] HMAC generation failed', e);
+        // PUL-032: `debug` is now a parameter — safe regardless of module init order.
+        if (debug) console.error('[Pulsar] HMAC generation failed', e);
         return null;
     }
 }
@@ -169,7 +173,7 @@ export function createCapturePipeline(sharedState) {
 
         state.queue = [];
 
-        const signature = await generateSignature(payload, state.config.secret);
+        const signature = await generateSignature(payload, state.config.secret, state.config.debug);
         const endpoint = state.config.endpoint;
         const nativeFetch = state.originalFetch || window.fetch;
         const payloadStr = JSON.stringify(payload);
@@ -213,13 +217,30 @@ export function createCapturePipeline(sharedState) {
         }
 
         if (!success) {
-            if (state.config.debug) console.error('[Pulsar] Failed to deliver event batch after ' + maxRetries + ' retries');
-            capture({
-                error_type: "FLUSH_FAILED",
-                message: `Failed to deliver event batch`,
-                severity: "error",
-                is_blocking: false
-            });
+            // PUL-030: NEVER call capture() from inside flush() — it causes infinite recursion.
+            // Strategy: log the failure, then rescue the failed batch back onto the front of the
+            // queue so the events survive until the next flush attempt (page hide, next capture, etc.).
+            if (state.config.debug) {
+                console.error(
+                    `[Pulsar] Failed to deliver event batch after ${maxRetries} retries. ` +
+                    `${payload.events.length} event(s) rescued back onto queue.`
+                );
+            }
+
+            // Rescue: prepend failed events back, honouring MAX_QUEUE_SIZE.
+            // We do NOT re-queue the synthetic QUEUE_OVERFLOW event itself to avoid noise.
+            const rescuable = payload.events.filter(e => e.error_type !== 'QUEUE_OVERFLOW');
+            const combined = [...rescuable, ...state.queue];
+            if (combined.length > MAX_QUEUE_SIZE) {
+                const overflow = combined.length - MAX_QUEUE_SIZE;
+                state.droppedEventsCount += overflow;
+                state.queue = combined.slice(0, MAX_QUEUE_SIZE);
+                if (state.config.debug) {
+                    console.warn(`[Pulsar] Queue full during rescue — dropped ${overflow} oldest rescued event(s).`);
+                }
+            } else {
+                state.queue = combined;
+            }
         }
     }
 
