@@ -40,12 +40,13 @@ const Pulsar = (function () {
             firstDropSessionId: null,  // session captured at drop time
             queue: [],
 
-            // Original references for teardown
+            // Handler references for teardown (PUL-033: addEventListener pattern)
             originalFetch: null,
-            originalOnerror: null,
-            originalOnunhandledrejection: null,
             originalXhrOpen: null,
             originalXhrSend: null,
+            errorHandler: null,  // window 'error' listener
+            rejectionHandler: null,  // window 'unhandledrejection' listener
+            mutationObserver: null,  // MutationObserver for critical selectors
             visibilityHandler: null,
             interactionHandler: null,
 
@@ -137,8 +138,10 @@ const Pulsar = (function () {
                     state.originalXhrOpen = null;
                     state.originalXhrSend = null;
                 }
-                if (state.originalOnerror !== null) { window.onerror = state.originalOnerror; state.originalOnerror = null; }
-                if (state.originalOnunhandledrejection !== null) { window.onunhandledrejection = state.originalOnunhandledrejection; state.originalOnunhandledrejection = null; }
+                // PUL-033: removeEventListener — symmetric with addEventListener in errors.js
+                if (state.errorHandler) { window.removeEventListener('error', state.errorHandler); state.errorHandler = null; }
+                if (state.rejectionHandler) { window.removeEventListener('unhandledrejection', state.rejectionHandler); state.rejectionHandler = null; }
+                if (state.mutationObserver) { state.mutationObserver.disconnect(); state.mutationObserver = null; }
                 if (state.visibilityHandler) { document.removeEventListener('visibilitychange', state.visibilityHandler); state.visibilityHandler = null; }
                 if (state.interactionHandler) { document.body.removeEventListener('click', state.interactionHandler, true); state.interactionHandler = null; }
 
