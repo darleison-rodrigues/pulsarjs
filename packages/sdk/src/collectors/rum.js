@@ -2,16 +2,21 @@
  * PulsarJS — RUM Collector
  * Core Web Vitals: LCP, INP, CLS, TTFB, FCP via PerformanceObserver.
  *
- * PUL-034: resetWebVitals() added. SPA navigation hook (pushState / replaceState
- * / popstate) flushes the departing page's metrics then resets accumulators so
- * the next route starts clean. Without this, CLS accumulates across all routes
- * and LCP/INP never reset in PWA Kit (React SPA, no full page reload).
+ * PUL-034: resetWebVitals() + SPA navigation hook for per-route accuracy.
+ *   Fixes in this revision:
+ *   (a) Wrong pipeline — captureRUM now pushes directly to state.queue; the
+ *       error capture pipeline (state.capture) has incompatible semantics and
+ *       was discarding all metric fields in favour of 'Unknown error'.
+ *   (b) Wrong URL — pushState updates window.location synchronously before any
+ *       callback fires; departingUrl is now captured before the state change so
+ *       RUM payloads are attributed to the page whose metrics were measured.
+ *   (c) isRouteChange compared against already-updated window.location.pathname;
+ *       now compares against the tracked currentHref (the pre-navigation path).
  */
 
 /**
  * Web Vitals accumulator — values are per-navigation.
- * Never read this reference directly from outside this module;
- * use captureRUM() which snapshots it safely.
+ * Use captureRUM() to read; it snapshots safely before any reset can race it.
  */
 export const webVitals = {
     lcp: null,
@@ -23,10 +28,8 @@ export const webVitals = {
 };
 
 /**
- * Reset all Web Vitals to their initial (pre-navigation) state.
- *
- * Must be called on every SPA navigation AFTER flushing the departing page's
- * metrics. Calling it before captureRUM() would send zeros — always flush first.
+ * Reset all Web Vitals to initial state.
+ * Always call AFTER captureRUM(), never before — resetting first sends zeros.
  */
 export function resetWebVitals() {
     webVitals.lcp = null;
@@ -56,7 +59,7 @@ export function setupPerformanceObserver(state) {
             }
         }).observe({ type: 'largest-contentful-paint', buffered: true });
 
-        // INP (replaces deprecated FID) — track worst interaction
+        // INP — track worst interaction per navigation
         try {
             new PerformanceObserver((entryList) => {
                 entryList.getEntries().forEach(entry => {
@@ -85,7 +88,7 @@ export function setupPerformanceObserver(state) {
             }
         }).observe({ type: 'layout-shift', buffered: true });
 
-        // TTFB + Load Time (initial page load only — SPA navigations handled by hook)
+        // TTFB + Load Time (initial hard load only — SPA navigations via hook)
         window.addEventListener('load', () => {
             setTimeout(() => {
                 if (window.performance && window.performance.timing) {
@@ -100,93 +103,116 @@ export function setupPerformanceObserver(state) {
         if (state.config.debug) console.warn('[Pulsar] PerformanceObserver setup failed', e);
     }
 
-    // Install the SPA navigation hook after observers are live (PUL-034).
     _installSpaNavigationHook(state);
 }
 
 /**
  * Monkey-patch history.pushState / history.replaceState and listen to popstate
- * so every client-side route change is detected.
+ * to detect every client-side route change.
  *
- * On each navigation:
- *   1. captureRUM(state)  — flush the departing page's accumulated metrics
- *   2. resetWebVitals()   — zero accumulators so the next page starts clean
+ * On each qualifying navigation (pathname change only):
+ *   1. captureRUM(state, departingUrl) — flush departing page's metrics
+ *   2. resetWebVitals()               — zero accumulators for next page
  *
- * Order matters: flush THEN reset. Resetting first would send zeros.
- *
- * All patched references are stored on state so disable() can restore them.
+ * Platform notes:
+ *   PWA Kit — always changes pathname on route change → always fires ✅
+ *   SFRA    — uses pushState for mini-cart/quickview/filters (query/hash only)
+ *             → pathname guard prevents spurious flushes ✅
+ *   SFRA/SiteGenesis hard nav — full reload; browser re-initialises webVitals ✅
  *
  * @param {object} state - Shared SDK state
  */
 function _installSpaNavigationHook(state) {
-    // Guard: prevent double-patching if setupPerformanceObserver is called again.
-    if (state.originalPushState) return;
+    if (state.originalPushState) return; // idempotent
+
+    // Track current href explicitly so we always have the PRE-navigation URL.
+    // window.location is updated synchronously by pushState/replaceState before
+    // any callback fires — relying on window.location.href inside the handler
+    // would give us the destination URL, producing wrong RUM attribution.
+    let currentHref = window.location.href;
 
     // ── Pathname-change guard ─────────────────────────────────────────────────
-    // Not every pushState/replaceState call is a full route change.
-    //
-    // PWA Kit (React SPA): always changes pathname on route change. ✅
-    // SFRA / SiteGenesis: uses pushState for UI state — mini-cart, quickview
-    //   modals, search refinements, URL-based filters. These typically update
-    //   only query params or hash, NOT the pathname.
-    //
-    // Firing captureRUM() + resetWebVitals() on a mini-cart pushState would
-    // wipe LCP/CLS mid-session and produce fragmented, meaningless RUM data.
-    //
-    // Fix: only treat a navigation as a route change when the pathname changes.
-    // ─────────────────────────────────────────────────────────────────────────
+    // isRouteChange compares newUrl's pathname against currentHref's pathname
+    // (the pre-navigation path). window.location may already be updated by the
+    // time this runs for pushState — comparing against currentHref is correct.
     function isRouteChange(newUrl) {
+        if (newUrl == null) return false;
         try {
             const next = new URL(String(newUrl), window.location.origin);
-            return next.pathname !== window.location.pathname;
+            const current = new URL(currentHref, window.location.origin);
+            return next.pathname !== current.pathname;
         } catch (_) {
-            return false; // malformed URL — don't flush
+            return false; // malformed URL — do not flush
         }
     }
 
-    function onSpaNavigate(newUrl) {
-        if (!isRouteChange(newUrl)) return; // query/hash-only change — ignore
-        captureRUM(state);   // flush departing page — must run before reset
-        resetWebVitals();    // clean slate for incoming page
+    // NOTE: captureRUM is declared as `export function` below this function in
+    // the module. Function declarations are hoisted to module scope, so calling
+    // captureRUM from here is safe at runtime. If captureRUM is ever refactored
+    // to `const captureRUM = ...` (an arrow/const), hoisting is lost and this
+    // call will throw a TDZ ReferenceError — do not make that change silently.
+    function onSpaNavigate(newUrl, departingUrl) {
+        if (!isRouteChange(newUrl)) {
+            currentHref = window.location.href; // keep tracking in sync
+            return;
+        }
+        captureRUM(state, departingUrl); // attributed to the page we are leaving
+        resetWebVitals();
+        currentHref = window.location.href; // update after navigation
         if (state.config.debug) {
             console.log('[Pulsar] SPA navigation — web vitals flushed and reset.');
         }
     }
 
-    // popstate does not carry the new URL as an argument — read it after the fact.
+    // popstate fires AFTER the browser updates window.location (back/forward).
+    // Use currentHref (pre-navigation) as the departing URL before updating.
     function onPopState() {
-        onSpaNavigate(window.location.href);
+        const departingUrl = currentHref;
+        currentHref = window.location.href;
+        onSpaNavigate(window.location.href, departingUrl);
     }
 
-    // Store originals bound to history so calling them later preserves context.
     state.originalPushState = history.pushState.bind(history);
     state.originalReplaceState = history.replaceState.bind(history);
     state.spaNavigationHandler = onPopState;
 
-    // pushState / replaceState: second arg is unused (title), third is the URL.
+    // pushState / replaceState: signature is (state, title, url).
+    // Capture departingUrl BEFORE calling the original — window.location updates
+    // synchronously inside the call and would give us the arriving URL too late.
     history.pushState = function (...args) {
+        const departingUrl = currentHref;
         state.originalPushState(...args);
-        onSpaNavigate(args[2]); // args[2] = url
+        onSpaNavigate(args[2], departingUrl);
     };
 
     history.replaceState = function (...args) {
+        const departingUrl = currentHref;
         state.originalReplaceState(...args);
-        onSpaNavigate(args[2]); // args[2] = url
+        onSpaNavigate(args[2], departingUrl);
     };
 
-    // popstate fires on back/forward — read location.href after the browser updates it.
     window.addEventListener('popstate', state.spaNavigationHandler);
 }
 
 /**
- * Capture a snapshot of current Web Vitals and enqueue for delivery.
+ * Snapshot current Web Vitals and push directly onto the delivery queue.
  *
- * Spreads webVitals into a plain object so a concurrent resetWebVitals() call
- * (e.g. from a rapid navigation) cannot mutate the payload mid-flight.
+ * @param {object} state              - Shared SDK state
+ * @param {string} [url]              - URL to attribute this payload to.
+ *                                      Defaults to window.location.href (correct
+ *                                      for the visibilitychange path where the
+ *                                      page hasn't navigated yet).
+ *                                      Pass departingUrl from the SPA hook to
+ *                                      attribute metrics to the page they belong to.
  *
- * @param {object} state - Shared SDK state
+ * PIPELINE NOTE: this function pushes DIRECTLY to state.queue and calls
+ * state.flush(). It does NOT go through state.capture() (the error pipeline).
+ * Reason: state.capture() rebuilds an error-shaped payload from errorData.*
+ * fields — it discards event_type, metrics, environment, and injects
+ * 'Unknown error' as the message. RUM events routed through that pipeline
+ * produce entirely malformed records on the backend.
  */
-export function captureRUM(state) {
+export function captureRUM(state, url = window.location.href) {
     if (!state.enabled || !state.isInitialized) return;
 
     const payload = {
@@ -194,15 +220,19 @@ export function captureRUM(state) {
         storefront_type: state.config.storefrontType,
         site_id: state.config.siteId,
         session_id: state.sessionID,
-        url: window.location.href,
+        url,                                    // attributed to departing page
         timestamp: new Date().toISOString(),
         event_type: 'RUM_METRICS',
-        metrics: { ...webVitals }, // snapshot — immune to post-call resets
+        metrics: { ...webVitals },       // snapshot — not live reference
         metadata: state.extractSFCCContext(),
         environment: state.captureEnvironment(),
         device_type: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
         dropped_events: state.droppedEventsCount
     };
 
-    state.capture(payload, state.globalScope, true); // bypass dedupe for RUM
+    state.queue.push(payload);
+
+    // Trigger delivery. state.flush() is guarded by isFlushing — if a flush is
+    // already in-flight, the finally block in capture.js schedules a follow-up.
+    if (state.flush) state.flush();
 }
