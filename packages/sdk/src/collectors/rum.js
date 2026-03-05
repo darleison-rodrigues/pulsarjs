@@ -122,7 +122,30 @@ function _installSpaNavigationHook(state) {
     // Guard: prevent double-patching if setupPerformanceObserver is called again.
     if (state.originalPushState) return;
 
-    function onSpaNavigate() {
+    // ── Pathname-change guard ─────────────────────────────────────────────────
+    // Not every pushState/replaceState call is a full route change.
+    //
+    // PWA Kit (React SPA): always changes pathname on route change. ✅
+    // SFRA / SiteGenesis: uses pushState for UI state — mini-cart, quickview
+    //   modals, search refinements, URL-based filters. These typically update
+    //   only query params or hash, NOT the pathname.
+    //
+    // Firing captureRUM() + resetWebVitals() on a mini-cart pushState would
+    // wipe LCP/CLS mid-session and produce fragmented, meaningless RUM data.
+    //
+    // Fix: only treat a navigation as a route change when the pathname changes.
+    // ─────────────────────────────────────────────────────────────────────────
+    function isRouteChange(newUrl) {
+        try {
+            const next = new URL(String(newUrl), window.location.origin);
+            return next.pathname !== window.location.pathname;
+        } catch (_) {
+            return false; // malformed URL — don't flush
+        }
+    }
+
+    function onSpaNavigate(newUrl) {
+        if (!isRouteChange(newUrl)) return; // query/hash-only change — ignore
         captureRUM(state);   // flush departing page — must run before reset
         resetWebVitals();    // clean slate for incoming page
         if (state.config.debug) {
@@ -130,24 +153,28 @@ function _installSpaNavigationHook(state) {
         }
     }
 
+    // popstate does not carry the new URL as an argument — read it after the fact.
+    function onPopState() {
+        onSpaNavigate(window.location.href);
+    }
+
     // Store originals bound to history so calling them later preserves context.
     state.originalPushState = history.pushState.bind(history);
     state.originalReplaceState = history.replaceState.bind(history);
-    state.spaNavigationHandler = onSpaNavigate;
+    state.spaNavigationHandler = onPopState;
 
-    // pushState and replaceState fire on programmatic navigation (React Router,
-    // Next.js router, etc.). They do NOT fire a native event — patch is required.
+    // pushState / replaceState: second arg is unused (title), third is the URL.
     history.pushState = function (...args) {
         state.originalPushState(...args);
-        onSpaNavigate();
+        onSpaNavigate(args[2]); // args[2] = url
     };
 
     history.replaceState = function (...args) {
         state.originalReplaceState(...args);
-        onSpaNavigate();
+        onSpaNavigate(args[2]); // args[2] = url
     };
 
-    // popstate fires on back/forward button navigation.
+    // popstate fires on back/forward — read location.href after the browser updates it.
     window.addEventListener('popstate', state.spaNavigationHandler);
 }
 
