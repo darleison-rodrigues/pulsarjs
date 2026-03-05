@@ -2,17 +2,18 @@
  * PulsarJS — Capture & Flush Pipeline
  * Queue management, deduplication, HMAC signing, beacon delivery, retry logic.
  *
- * Change log (PUL-030 series):
- *   - flush() never calls capture() — recursive FLUSH_FAILED eliminated (rescue pattern)
- *   - isFlushing guard — one flush in flight at a time (concurrency safety)
- *   - Queue snapshot before awaits — events arriving during flush are not lost
- *   - sendBeacon primary transport — HMAC signature wrapped inside body, NOT in URL
- *   - flushOnHide() — page-hide path bypasses isFlushing (tab-close delivery)
- *   - 200 ms debounce — burst events collapse into one request
- *   - Rescue slice order — newest events survive capacity overflow
- *   - beforeSendTimeout uses ?? (not ||) — 0 is a valid caller-supplied value
- *   - QUEUE_OVERFLOW context captured at drop time, not flush time
- *   - generateSignature takes debug param — no module-level state reference
+ * Change log:
+ *   PUL-030 — flush() never calls capture() — recursive FLUSH_FAILED eliminated (rescue pattern)
+ *   PUL-030 — isFlushing guard — one flush in flight at a time (concurrency safety)
+ *   PUL-030 — Queue snapshot before awaits — events arriving during flush are not lost
+ *   PUL-030 — sendBeacon primary transport — HMAC signature wrapped inside body, NOT in URL
+ *   PUL-030 — flushOnHide() — page-hide path bypasses isFlushing (tab-close delivery)
+ *   PUL-030 — 200 ms debounce — burst events collapse into one request
+ *   PUL-030 — Rescue slice order — newest events survive capacity overflow
+ *   PUL-030 — beforeSendTimeout uses ?? (not ||) — 0 is a valid caller-supplied value
+ *   PUL-030 — QUEUE_OVERFLOW context captured at drop time, not flush time
+ *   PUL-032 — generateSignature takes debug param (no module-level state ref)
+ *   PUL-032 — module-level `state` singleton eliminated; each pipeline owns its closure
  */
 import { Sanitizers } from '../utils/sanitizers.js';
 
@@ -62,11 +63,6 @@ export async function generateSignature(payload, secret, debug = false) {
     }
 }
 
-// Module-level state reference — set once by createCapturePipeline.
-// PUL-032 tracks elimination of this singleton (multi-tenant correctness).
-// For now: generateSignature does NOT touch it; all other uses are post-init.
-let state = null;
-
 /**
  * Build a sendBeacon-compatible Blob.
  * The HMAC signature is wrapped inside the body — NEVER in the URL — to prevent
@@ -91,11 +87,15 @@ function buildBeaconBlob(batch, signature) {
 /**
  * Create the capture pipeline bound to shared SDK state.
  *
+ * Each call returns an independent pipeline with its own closure — calling this
+ * twice no longer overwrites a shared module-level variable (PUL-032).
+ *
  * @param {object} sharedState
  * @returns {{ capture: Function, flush: Function, flushOnHide: Function }}
  */
 export function createCapturePipeline(sharedState) {
-    state = sharedState;
+    // PUL-032: closure-scoped const — immutable per instance, no module singleton.
+    const state = sharedState;
 
     const _fingerprintCache = new Map();
 
