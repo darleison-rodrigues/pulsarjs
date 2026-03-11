@@ -3,6 +3,9 @@
  * Privacy-first error monitoring & RUM for SFCC storefronts.
  *
  * Entry point — wires domain modules into a single IIFE.
+ *
+ * Change log:
+ *   SB-6 — flush() exposed on the public API (was bound on state but never forwarded)
  */
 import { Scope } from './core/scope.js';
 import { DEFAULT_CONFIG, validateConfig } from './core/config.js';
@@ -168,6 +171,19 @@ const Pulsar = (function () {
                     metadata: metadata,
                     is_blocking: false
                 });
+            },
+
+            /**
+             * Manually trigger a flush of the event queue.
+             *
+             * Useful for merchants who need guaranteed delivery before a redirect
+             * (e.g. checkout submit), or for test harnesses that need to assert on
+             * captured events synchronously.
+             *
+             * @returns {Promise<void>}
+             */
+            flush: function () {
+                return pipeline.flush();
             }
         };
     }
