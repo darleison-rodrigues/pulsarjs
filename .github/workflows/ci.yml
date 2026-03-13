@@ -39,7 +39,7 @@ jobs:
       - name: Install deps
         run: pnpm install
       - name: Run ESLint
-        run: pnpm --recursive run lint || true
+        run: pnpm --recursive run lint
       - name: Typecheck
         run: pnpm run typecheck
 

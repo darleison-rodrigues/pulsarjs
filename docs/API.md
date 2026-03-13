@@ -8,16 +8,13 @@ Privacy-first error monitoring & RUM for SFCC storefronts.
 
 ## Authentication
 
-PulsarJS uses **HMAC-SHA256 per-request signing**. Each request to `/v1/ingest` must include:
+PulsarJS uses **Domain-bound origin validation** and **Client ID** headers. Each request to `/v1/ingest` must include:
 
 | Header | Description |
 |---|---|
 | `X-Pulsar-Client-Id` | Your tenant ID |
-| `X-Pulsar-Signature` | HMAC-SHA256 signature of the JSON body, base64-encoded |
 
-The SDK generates signatures automatically when `secret` is configured.
-
-> **Fallback**: JWT Bearer tokens via `/v1/session` are also supported but HMAC is the recommended path.
+Server-side rate limiting and origin allowlists handle authenticated ingestion.
 
 ---
 
@@ -29,7 +26,6 @@ The SDK generates signatures automatically when `secret` is configured.
     Pulsar.init({
         clientId: 'your-tenant-id',
         siteId: 'RefArch',
-        secret: 'your-hmac-secret',
         debug: false
     });
 </script>
@@ -42,7 +38,6 @@ The SDK generates signatures automatically when `secret` is configured.
 | `clientId` | `string` | **Required** | Your PulsarJS tenant ID |
 | `siteId` | `string` | `'unknown'` | SFCC Site ID (e.g., RefArch) |
 | `endpoint` | `string` | `https://api.pulsarjs.com/v1/ingest` | Ingestion endpoint URL |
-| `secret` | `string` | `null` | HMAC-SHA256 signing secret |
 | `storefrontType` | `string` | `'PWA_KIT'` | `PWA_KIT` or `SITEGENESIS` |
 | `sampleRate` | `number` | `1.0` | Session sampling rate (0–1) |
 | `beforeSend` | `function` | `null` | Async hook to filter/enrich events. Return `null` to drop. |
@@ -51,6 +46,9 @@ The SDK generates signatures automatically when `secret` is configured.
 | `criticalSelectors` | `string[]` | Error UI selectors | CSS selectors for MutationObserver (error UI detection) |
 | `maxBreadcrumbs` | `number` | `100` | Max breadcrumbs in circular buffer |
 | `slowApiThreshold` | `number` | `1000` | Latency threshold (ms) for API_LATENCY events |
+| `rageClickThreshold` | `number` | `3` | Clicks within window to trigger RAGE_CLICK |
+| `rageClickWindow` | `number` | `1000` | Time window (ms) for rage click detection |
+| `scrollDepthMilestones` | `number[]` | `[25, 50, 75, 100]` | SCROLL_DEPTH trigger points |
 | `debug` | `boolean` | `false` | Console logging |
 
 ### `Pulsar.captureException(error, metadata?)`
@@ -65,7 +63,16 @@ try {
 
 ### `Pulsar.enable()` / `Pulsar.disable()`
 
-Runtime toggle. `disable()` restores original `fetch`, `XHR`, `onerror`, and `onunhandledrejection`.
+Runtime toggle. `disable()` restores original `fetch`, `XHR`, `onerror`, and `onunhandledrejection`, and detaches interaction/navigation listeners.
+
+### `Pulsar.getContext()`
+
+Returns a snapshot of the current session context, tags, user data, and configuration. Useful for debugging or custom server-side handshakes.
+
+```javascript
+const context = Pulsar.getContext();
+console.log(context.sessionID);
+```
 
 ### `Pulsar.getScope()`
 
@@ -88,52 +95,82 @@ Health check.
 { "status": "ok", "service": "pulsarjs" }
 ```
 
-### `POST /v1/session`
-
-JWT handshake (legacy, HMAC preferred).
-
-**Headers**: `X-Pulsar-Client-Id`
-**Response**: `{ "token": "...", "expires_at": 1234567890 }`
-
 ### `POST /v1/ingest`
 
-Primary telemetry sink. Returns `202 Accepted`.
+Primary telemetry sink. Receives ordered behavioral events for ECKG construction. Returns `202 Accepted`.
 
-**Headers**: `X-Pulsar-Client-Id`, `X-Pulsar-Signature`
-**Content-Type**: `application/json` or `text/plain`
+**Headers**: `X-Pulsar-Client-Id`, `Content-Type: application/json`
+**Fallback**: `text/plain` via `navigator.sendBeacon` (no custom headers — `client_id` is in the body)
 
-**Response**:
+**Batch Envelope**:
+```json
+{
+    "pulsar_version": "1.0.0",
+    "client_id": "your-client-id",
+    "site_id": "RefArch",
+    "timestamp": "2026-03-13T14:22:05.000Z",
+    "dropped_events": 0,
+    "events": [ ... ]
+}
+```
+
+**Response (`202 Accepted`)**:
 ```json
 {
     "status": "accepted",
-    "incident_id": "uuid",
-    "classification": "pending"
+    "batch_id": "a1b2c3d4-e5f6-g7h8-i9j0",
+    "events_processed": 12
 }
 ```
 
 ---
 
-## TelemetryEvent Schema
+## Event Schema
+
+Every event is a **node** in the Event-Centric Knowledge Graph. The server infers edges from `session_id` + `event_id` ordering.
+
+### Common Fields (all events)
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `error_type` | `string` | ✓ | `JS_CRASH`, `API_FAILURE`, `API_LATENCY`, `UI_FAILURE`, `NETWORK_ERROR`, `RUM_METRICS`, `QUEUE_OVERFLOW`, `FLUSH_FAILED`, `CUSTOM_EXCEPTION` |
-| `message` | `string` | ✓ | Error message (PII-redacted by SDK) |
-| `session_id` | `string` | ✓ | Unique session ID (crypto.randomUUID) |
-| `severity` | `enum` | | `critical` · `high` · `warning` · `low` · `info` |
-| `timestamp` | `ISO8601` | | Capture timestamp |
-| `url` | `string` | | Document URL |
-| `is_blocking` | `boolean` | | Whether error blocks user flow |
-| `status_code` | `number` | | HTTP status for API errors |
-| `response_snippet` | `string` | | Truncated request body (≤500 chars, PII-redacted) |
+| `event_id` | `string` | ✓ | Monotonic ID: `{session_id}:{seq}`. Unique graph node identifier. |
+| `event_type` | `string` | ✓ | Node type (see Event Types below) |
+| `session_id` | `string` | ✓ | Session ID (`crypto.randomUUID`) |
+| `timestamp` | `ISO8601` | ✓ | Capture time. Temporal edge ordering. |
+| `url` | `string` | ✓ | Sanitized URL (query params stripped) |
+| `message` | `string` | ✓ | Human-readable summary (PII-redacted) |
+| `severity` | `enum` | | `error` · `warning` · `info` |
+| `is_blocking` | `boolean` | | Whether this event blocks user flow |
 | `device_type` | `string` | | `mobile` or `desktop` |
-| `metrics` | `WebVitals` | | RUM: LCP, INP, CLS, TTFB, loadTime |
-| `metadata` | `object` | | SFCC context (dwsid, pageType, campaign, etc.) |
-| `environment` | `object` | | Screen, timezone, DevTools detection |
+| `metadata` | `object` | | Event-specific + SFCC context |
+| `environment` | `object` | | Screen, timezone, time_since_load |
 | `scope` | `object` | | Tags, user, breadcrumbs |
-| `dropped_events` | `number` | | Count of dropped events due to queue limits |
+| `metrics` | `WebVitals` | | Only on `RUM_METRICS` events |
+| `status_code` | `number` | | Only on API error events |
+| `response_snippet` | `string` | | Truncated body (≤500 chars, PII-redacted) |
+| `dropped_events` | `number` | | Running count of dropped events |
 
-### WebVitals Object
+### Event Types
+
+| event_type | Category | metadata keys | Description |
+|---|---|---|---|
+| `PAGE_VIEW` | Navigation | `page_type`, `referrer_type`, `from_page_type`, `path` | Page load or SPA route change |
+| `CAMPAIGN_ENTRY` | Navigation | `utm_source`, `utm_medium`, `utm_campaign`, `gclid`, `fbclid` | Session entry with campaign params. Once per session. |
+| `TAB_VISIBILITY` | Navigation | `visibility`, `page_type` | Tab hidden/visible. Reveals engagement gaps. |
+| `SCROLL_DEPTH` | Interaction | `depth` | Milestone reached (25%, 50%, 75%, 100%) |
+| `RAGE_CLICK` | Interaction | `selector`, `click_count`, `window_ms` | Rapid clicks on same element. Frustration signal. |
+| `COMMERCE_ACTION` | Commerce | `action`, `endpoint`, `method`, `duration_ms` | Successful SCAPI call: `cart_add`, `cart_update`, `cart_remove`, `checkout`, `search` |
+| `JS_CRASH` | Error | — | `window.onerror` or unhandled rejection |
+| `API_FAILURE` | Error | `status`, `endpoint`, `method`, `duration_ms` | Non-2xx from monitored endpoints |
+| `NETWORK_ERROR` | Error | `endpoint`, `method` | Fetch/XHR network failure |
+| `UI_FAILURE` | Error | — | Critical error UI rendered (MutationObserver) |
+| `API_LATENCY` | Performance | `endpoint`, `method`, `duration_ms` | API exceeding `slowApiThreshold` |
+| `RUM_METRICS` | Performance | — | Core Web Vitals snapshot |
+| `CUSTOM_EXCEPTION` | Error | user-defined | Via `Pulsar.captureException()` |
+| `QUEUE_OVERFLOW` | System | `dropped_count`, `first_drop_time` | Events dropped due to queue limits |
+| `FLUSH_FAILED` | System | — | Delivery failed after retries |
+
+### WebVitals Object (on RUM_METRICS)
 
 | Metric | Type | Description |
 |---|---|---|
@@ -145,12 +182,39 @@ Primary telemetry sink. Returns `202 Accepted`.
 
 ---
 
+## ECKG Edge Inference (Server-Side)
+
+The SDK emits **nodes**. The server computes **edges** from session ordering and event type pairs.
+
+| Edge Type | Inference Rule |
+|---|---|
+| `preceded` | Sequential events in same session (`e2.seq = e1.seq + 1`) |
+| `caused` | `CAMPAIGN_ENTRY` → first `PAGE_VIEW` in session |
+| `blocked_by` | `API_FAILURE` / `NETWORK_ERROR` within 2s after `COMMERCE_ACTION` |
+| `frustrated_by` | `RAGE_CLICK` following any error event |
+| `abandoned_at` | `TAB_VISIBILITY(hidden)` after `COMMERCE_ACTION` with no subsequent `checkout` |
+
+```
+CAMPAIGN_ENTRY ──caused──→ PAGE_VIEW(Home) ──preceded──→ PAGE_VIEW(PDP)
+                                                              │
+                                                      COMMERCE_ACTION(cart_add)
+                                                              │
+                                                      PAGE_VIEW(Checkout)
+                                                              │ blocked_by
+                                                      API_FAILURE(500)
+                                                              │ frustrated_by
+                                                      RAGE_CLICK(#place-order)
+```
+
+---
+
 ## Pipeline Architecture
 
 ```
 SDK (pulsar.js) → POST /v1/ingest → CF Queue → Batch Consumer
-                                              ├── StorageWorkflow (D1 + R2 + BigQuery)
-                                              └── AlertWorkflow (Email / Slack)
+                                                    ├── Event Store (events table)
+                                                    ├── Edge Materializer (optional, Phase 2)
+                                                    └── AlertWorkflow (Email / Slack)
 ```
 
 ### Middleware Stack (request order)
@@ -160,15 +224,28 @@ SDK (pulsar.js) → POST /v1/ingest → CF Queue → Batch Consumer
 3. **CORS** — Origin allowlist
 4. **Firewall** — ASN/IP blocklist, path traversal, scanner UA detection
 5. **Security headers** — CSP, X-Frame-Options, nosniff
-6. **Ingestion auth** — HMAC signature verification → JWT fallback
+6. **Ingestion auth** — Domain-origin validation + Client ID
 
-### Storage (Phase 1)
+### Storage
+
+**Phase 1 (MVP — query-time graph)**:
 
 | Layer | Purpose |
 |---|---|
-| **D1** | Session tracking, tenant registry, hot metadata |
-| **R2** | Raw event blobs (gzip compressed) |
-| **BigQuery** | Analytics queries (placeholder, not yet active) |
+| **D1** | Events table (flat), tenant registry, session index |
+| **R2** | Raw batch blobs (gzip, immutable archive) |
+
+Events are stored flat. Graph edges computed at query time via SQL window functions on `session_id` + `event_id` ordering.
+
+**Phase 2 (materialized graph)**:
+
+| Layer | Purpose |
+|---|---|
+| **ClickHouse** | Columnar event store. Fast aggregation across millions of sessions. |
+| **Edge table** | Pre-computed adjacency list: `(source_event_id, target_event_id, edge_type)` |
+| **R2** | Cold archive |
+
+Edge materialization happens in the batch consumer. Dashboard queries become graph traversals instead of window functions.
 
 ### Alerting
 
