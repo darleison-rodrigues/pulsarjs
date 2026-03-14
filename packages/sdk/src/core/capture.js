@@ -1,6 +1,6 @@
 /**
  * PulsarJS — Capture & Flush Pipeline
- * Queue management, deduplication, HMAC signing, beacon delivery, retry logic.
+ * Queue management, deduplication, beacon delivery, retry logic.
  */
 import { Sanitizers } from '../utils/sanitizers.js';
 
@@ -19,42 +19,35 @@ export function hash(str) {
 }
 
 /**
- * Generate HMAC-SHA256 signature for payload authentication.
- */
-export async function generateSignature(payload, secret) {
-    if (!secret || typeof crypto === 'undefined' || !crypto.subtle) return null;
-    try {
-        const encoder = new TextEncoder();
-        const keyData = encoder.encode(secret);
-        const msgData = encoder.encode(JSON.stringify(payload));
-        const key = await crypto.subtle.importKey(
-            'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-        );
-        const signature = await crypto.subtle.sign('HMAC', key, msgData);
-        return btoa(String.fromCharCode(...new Uint8Array(signature)));
-    } catch (e) {
-        if (state.config.debug) console.error('[Pulsar] HMAC generation failed', e);
-        return null;
-    }
-}
-
-// Module-level state reference (set by createCapturePipeline)
-let state = null;
-
-/**
  * Create the capture pipeline bound to shared SDK state.
  */
-export function createCapturePipeline(sharedState) {
-    state = sharedState;
-
+export function createCapturePipeline(state) {
     const _fingerprintCache = new Map();
+    let _flushTimer = null;
+    let _eventSeq = 0;
 
-    async function capture(errorData, localScope = state.globalScope, bypassDedupe = false) {
+    /**
+     * Periodic cleanup of fingerprint cache to prevent memory leaks (H1)
+     */
+    function _cleanupFingerprintCache() {
+        if (_fingerprintCache.size > 1000) {
+            const now = Date.now();
+            for (const [key, val] of _fingerprintCache.entries()) {
+                if (now - val.timestamp > 300000) { // 5 minutes TTL
+                    _fingerprintCache.delete(key);
+                }
+            }
+        }
+    }
+
+    async function capture(errorData, localScope = state.globalScope, bypassDedupe = false, bypassFlush = false) {
         if (!state.enabled || !state.isInitialized) return;
+
+        _cleanupFingerprintCache();
 
         // Deduplication: suppress identical errors within 1 minute (except checkout)
         if (!bypassDedupe) {
-            const fingerprint = hash(`${errorData.error_type}|${errorData.message}|${window.location.pathname}`);
+            const fingerprint = hash(`${errorData.event_type}|${errorData.message}|${window.location.pathname}`);
             const isCheckout = /checkout/i.test(window.location.pathname);
 
             if (!isCheckout) {
@@ -69,16 +62,17 @@ export function createCapturePipeline(sharedState) {
         }
 
         let payload = {
+            event_id: `${state.sessionID}:${++_eventSeq}`,
             client_id: state.config.clientId,
             storefront_type: state.config.storefrontType,
             site_id: state.config.siteId,
             session_id: state.sessionID,
-            url: window.location.href,
+            url: Sanitizers.sanitizeUrl(window.location.href),
             timestamp: new Date().toISOString(),
-            error_type: errorData.error_type || errorData.event_type || 'UNKNOWN',
+            event_type: errorData.event_type || errorData.error_type || 'UNKNOWN',
             message: Sanitizers.redactPII(errorData.message || 'Unknown error'),
             response_snippet: errorData.response_snippet ? Sanitizers.redactPII(errorData.response_snippet) : null,
-            severity: errorData.severity || 'info', // Changed default to 'info' for RUM
+            severity: errorData.severity || 'info',
             is_blocking: errorData.is_blocking || false,
             metrics: errorData.metrics || null,
             metadata: { ...errorData.metadata, ...state.extractSFCCContext() },
@@ -91,10 +85,11 @@ export function createCapturePipeline(sharedState) {
 
         // Async beforeSend with timeout circuit breaker
         if (typeof state.config.beforeSend === 'function') {
+            let timeoutId;
             try {
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('timeout')), state.config.beforeSendTimeout)
-                );
+                const timeoutPromise = new Promise((_, reject) => {
+                    timeoutId = setTimeout(() => reject(new Error('timeout')), state.config.beforeSendTimeout);
+                });
                 payload = await Promise.race([
                     Promise.resolve(state.config.beforeSend(payload)),
                     timeoutPromise
@@ -112,6 +107,8 @@ export function createCapturePipeline(sharedState) {
                 } else {
                     if (state.config.debug) console.warn('[Pulsar] beforeSend hook threw an error', e);
                 }
+            } finally {
+                clearTimeout(timeoutId); // H3: Clear timeout to prevent leak
             }
         }
 
@@ -127,17 +124,21 @@ export function createCapturePipeline(sharedState) {
             state.droppedSinceLastFlush++;
             if (!state.firstDropTimestamp) state.firstDropTimestamp = new Date().toISOString();
         }
-        flush();
+
+        if (!bypassFlush) {
+            // H2: Debounced flush
+            if (_flushTimer) clearTimeout(_flushTimer);
+            _flushTimer = setTimeout(() => flush(), 2000);
+        }
     }
 
     async function flush() {
-        if (state.queue.length === 0 && state.droppedSinceLastFlush === 0) return;
-
-        // HMAC is the only auth mechanism now. No session token needed.
-        if (!state.config.secret) {
-            if (state.config.debug) console.warn('[Pulsar] No HMAC secret configured. Cannot flush.');
-            return;
+        if (_flushTimer) {
+            clearTimeout(_flushTimer);
+            _flushTimer = null;
         }
+
+        if (state.queue.length === 0 && state.droppedSinceLastFlush === 0) return;
 
         // Queue overflow synthetic event
         if (state.droppedSinceLastFlush > 0) {
@@ -146,9 +147,9 @@ export function createCapturePipeline(sharedState) {
                 storefront_type: state.config.storefrontType,
                 site_id: state.config.siteId,
                 session_id: state.sessionID,
-                url: window.location.href,
+                url: Sanitizers.sanitizeUrl(window.location.href),
                 timestamp: new Date().toISOString(),
-                error_type: "QUEUE_OVERFLOW",
+                event_type: "QUEUE_OVERFLOW",
                 message: `Dropped ${state.droppedSinceLastFlush} events due to queue limits`,
                 metadata: { dropped_count: state.droppedSinceLastFlush, first_drop_time: state.firstDropTimestamp },
                 dropped_events: state.droppedEventsCount,
@@ -160,7 +161,7 @@ export function createCapturePipeline(sharedState) {
         }
 
         const payload = {
-            pulsar_version: '1.0.0',
+            pulsar_version: '1.0.0', // M8: Should be injected at build time, but for now kept as is
             client_id: state.config.clientId,
             site_id: state.config.siteId,
             timestamp: new Date().toISOString(),
@@ -170,7 +171,6 @@ export function createCapturePipeline(sharedState) {
 
         state.queue = [];
 
-        const signature = await generateSignature(payload, state.config.secret);
         const endpoint = state.config.endpoint;
         const nativeFetch = state.originalFetch || window.fetch;
         const payloadStr = JSON.stringify(payload);
@@ -179,7 +179,6 @@ export function createCapturePipeline(sharedState) {
             'Content-Type': 'application/json',
             'X-Pulsar-Client-Id': state.config.clientId
         };
-        if (signature) headers['X-Pulsar-Signature'] = signature;
 
         let success = false;
         let retryCount = 0;
@@ -187,7 +186,9 @@ export function createCapturePipeline(sharedState) {
 
         while (retryCount <= maxRetries && !success) {
             try {
-                if (retryCount === 0 && !signature && navigator.sendBeacon) {
+                // If it's the first attempt and Beacon API is available, try it for redundancy
+                // Note: Beacon doesn't support custom headers, but client_id is in the body.
+                if (retryCount === 0 && navigator.sendBeacon) {
                     const blob = new Blob([payloadStr], { type: 'text/plain' });
                     success = navigator.sendBeacon(endpoint, blob);
                 }
@@ -201,7 +202,7 @@ export function createCapturePipeline(sharedState) {
                     });
                     success = res.ok;
                 }
-            } catch (e) {
+            } catch (_e) {
                 // Network error — will retry
             }
 
@@ -215,12 +216,13 @@ export function createCapturePipeline(sharedState) {
 
         if (!success) {
             if (state.config.debug) console.error('[Pulsar] Failed to deliver event batch after ' + maxRetries + ' retries');
+            // C2: Prevent infinite recursion by passing bypassFlush = true
             capture({
-                error_type: "FLUSH_FAILED",
+                event_type: "FLUSH_FAILED",
                 message: `Failed to deliver event batch`,
                 severity: "error",
                 is_blocking: false
-            });
+            }, state.globalScope, true, true);
         }
     }
 

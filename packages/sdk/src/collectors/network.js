@@ -1,8 +1,30 @@
 /**
  * PulsarJS — Network Interceptors
- * Monkey-patches fetch and XHR to capture API failures, latency, and network errors.
+ * Monkey-patches fetch and XHR to capture API failures, latency, network errors,
+ * and commerce actions (ECKG nodes: cart_add, checkout, search).
  */
 import { Sanitizers } from '../utils/sanitizers.js';
+
+/**
+ * SFCC SCAPI commerce action patterns.
+ * Successful calls to these endpoints emit COMMERCE_ACTION events
+ * so the server can build funnel edges in the knowledge graph.
+ */
+const COMMERCE_ACTIONS = [
+    { action: 'cart_add',    method: 'POST',   pattern: /\/baskets\/[^/]+\/items/i },
+    { action: 'cart_update', method: 'PATCH',  pattern: /\/baskets\//i },
+    { action: 'cart_remove', method: 'DELETE',  pattern: /\/baskets\/[^/]+\/items/i },
+    { action: 'checkout',    method: 'POST',   pattern: /\/orders/i },
+    { action: 'search',      method: 'GET',    pattern: /\/product-search/i }
+];
+
+function detectCommerceAction(method, url) {
+    const m = (method || 'GET').toUpperCase();
+    for (const ca of COMMERCE_ACTIONS) {
+        if (ca.method === m && ca.pattern.test(url)) return ca.action;
+    }
+    return null;
+}
 
 /**
  * Patch window.fetch to intercept SFCC API calls.
@@ -29,6 +51,7 @@ export function setupFetchInterceptor(state) {
         if (!isSFCCRoute || isInternalRoute) return proceed();
 
         try {
+            const method = (args[1]?.method || 'GET').toUpperCase();
             let bodySnippet = null;
             if (args[1] && args[1].body && typeof args[1].body === 'string') {
                 bodySnippet = Sanitizers.redactPII(args[1].body).substring(0, 500);
@@ -40,35 +63,54 @@ export function setupFetchInterceptor(state) {
 
             if (!response.ok) {
                 capture({
-                    error_type: "API_FAILURE",
-                    message: `API HTTP ${response.status}: ${response.url}`,
+                    event_type: "API_FAILURE",
+                    message: `API HTTP ${response.status}: ${Sanitizers.sanitizeApiEndpoint(response.url)}`,
                     response_snippet: bodySnippet,
-                    metadata: { status: response.status, endpoint: response.url, duration_ms: duration },
+                    metadata: { status: response.status, endpoint: Sanitizers.sanitizeApiEndpoint(response.url), method, duration_ms: duration },
                     severity: response.status >= 500 ? "error" : "warning",
                     is_blocking: false
                 });
-            } else if (duration > config.slowApiThreshold) {
-                capture({
-                    error_type: "API_LATENCY",
-                    message: `Slow API call: ${response.url}`,
-                    metadata: { endpoint: response.url, duration_ms: duration },
-                    severity: "info",
-                    is_blocking: false
-                });
+            } else {
+                // Commerce action detection — successful SCAPI calls become ECKG nodes
+                const commerceAction = detectCommerceAction(method, requestUrl);
+                if (commerceAction) {
+                    capture({
+                        event_type: "COMMERCE_ACTION",
+                        message: `Commerce: ${commerceAction}`,
+                        metadata: {
+                            action: commerceAction,
+                            endpoint: Sanitizers.sanitizeApiEndpoint(requestUrl),
+                            method,
+                            duration_ms: duration
+                        },
+                        severity: "info",
+                        is_blocking: false
+                    });
+                }
+
+                if (duration > config.slowApiThreshold) {
+                    capture({
+                        event_type: "API_LATENCY",
+                        message: `Slow API: ${Sanitizers.sanitizeApiEndpoint(response.url)}`,
+                        metadata: { endpoint: Sanitizers.sanitizeApiEndpoint(response.url), method, duration_ms: duration },
+                        severity: "info",
+                        is_blocking: false
+                    });
+                }
             }
             return response;
         } catch (error) {
-            if (error.__pulsar_processed) throw error;
+            if (state.processedErrors.has(error)) throw error;
 
             capture({
-                error_type: "NETWORK_ERROR",
+                event_type: "NETWORK_ERROR",
                 message: error.message,
-                url: requestUrl,
+                metadata: { endpoint: Sanitizers.sanitizeApiEndpoint(requestUrl), method },
                 severity: "error",
                 is_blocking: true
             });
 
-            error.__pulsar_processed = true;
+            state.processedErrors.add(error);
             throw error;
         }
     };
@@ -109,9 +151,9 @@ export function setupXHRInterceptor(state) {
 
                         if (this.status === 0) {
                             capture({
-                                error_type: "NETWORK_ERROR",
-                                message: `XHR Network Error (Status 0): ${this._url}`,
-                                metadata: { method: this._method, url: this._url, duration_ms: duration },
+                                event_type: "NETWORK_ERROR",
+                                message: `XHR Network Error: ${Sanitizers.sanitizeApiEndpoint(this._url)}`,
+                                metadata: { method: this._method, endpoint: Sanitizers.sanitizeApiEndpoint(this._url), duration_ms: duration },
                                 severity: "error",
                                 is_blocking: false
                             });
@@ -121,21 +163,40 @@ export function setupXHRInterceptor(state) {
                                 bodySnippet = Sanitizers.redactPII(body).substring(0, 500);
                             }
                             capture({
-                                error_type: "API_FAILURE",
-                                message: `XHR HTTP ${this.status}: ${this._url}`,
+                                event_type: "API_FAILURE",
+                                message: `XHR HTTP ${this.status}: ${Sanitizers.sanitizeApiEndpoint(this._url)}`,
                                 response_snippet: bodySnippet,
-                                metadata: { status: this.status, endpoint: this._url, method: this._method, duration_ms: duration },
+                                metadata: { status: this.status, endpoint: Sanitizers.sanitizeApiEndpoint(this._url), method: this._method, duration_ms: duration },
                                 severity: this.status >= 500 ? "error" : "warning",
                                 is_blocking: false
                             });
-                        } else if (duration > config.slowApiThreshold) {
-                            capture({
-                                error_type: "API_LATENCY",
-                                message: `Slow XHR call: ${this._url}`,
-                                metadata: { endpoint: this._url, method: this._method, duration_ms: duration },
-                                severity: "info",
-                                is_blocking: false
-                            });
+                        } else {
+                            // Commerce action detection for XHR
+                            const commerceAction = detectCommerceAction(this._method, this._url);
+                            if (commerceAction) {
+                                capture({
+                                    event_type: "COMMERCE_ACTION",
+                                    message: `Commerce: ${commerceAction}`,
+                                    metadata: {
+                                        action: commerceAction,
+                                        endpoint: Sanitizers.sanitizeApiEndpoint(this._url),
+                                        method: this._method,
+                                        duration_ms: duration
+                                    },
+                                    severity: "info",
+                                    is_blocking: false
+                                });
+                            }
+
+                            if (duration > config.slowApiThreshold) {
+                                capture({
+                                    event_type: "API_LATENCY",
+                                    message: `Slow XHR: ${Sanitizers.sanitizeApiEndpoint(this._url)}`,
+                                    metadata: { endpoint: Sanitizers.sanitizeApiEndpoint(this._url), method: this._method, duration_ms: duration },
+                                    severity: "info",
+                                    is_blocking: false
+                                });
+                            }
                         }
                     } catch (e) {
                         if (config.debug) console.warn('[Pulsar] XHR loadend hook error', e);

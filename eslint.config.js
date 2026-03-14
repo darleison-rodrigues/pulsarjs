@@ -6,7 +6,12 @@ export default tseslint.config(
         files: ["**/*.js"],
         rules: {
             "no-console": "warn",
-            "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+            "no-unused-vars": "off",
+            "@typescript-eslint/no-unused-vars": ["error", { 
+                "argsIgnorePattern": "^_",
+                "varsIgnorePattern": "^_",
+                "caughtErrorsIgnorePattern": "^_"
+            }],
         },
         languageOptions: {
             parserOptions: {

@@ -16,9 +16,11 @@ export const DEFAULT_CONFIG = {
     beforeSendTimeout: 2000,
     allowUnconfirmedConsent: false,
     nonce: null,
-    secret: null,
     maxBreadcrumbs: 100,
     slowApiThreshold: 1000,
+    rageClickThreshold: 3,
+    rageClickWindow: 1000,
+    scrollDepthMilestones: [25, 50, 75, 100],
     debug: false
 };
 

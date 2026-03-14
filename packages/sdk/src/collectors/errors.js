@@ -15,7 +15,7 @@ export function setupErrorHandlers(state) {
 
     window.onerror = function (msg, url, line, col, error) {
         capture({
-            error_type: "JS_CRASH",
+            event_type: "JS_CRASH",
             message: msg,
             url: window.location.href,
             response_snippet: error ? error.stack : `${url}:${line}:${col}`,
@@ -27,7 +27,7 @@ export function setupErrorHandlers(state) {
 
     window.onunhandledrejection = function (event) {
         capture({
-            error_type: "JS_CRASH",
+            event_type: "JS_CRASH",
             message: event.reason ? event.reason.toString() : 'Unhandled Promise Rejection',
             url: window.location.href,
             response_snippet: event.reason && event.reason.stack ? event.reason.stack : null,
@@ -51,7 +51,7 @@ export function setupErrorHandlers(state) {
                 for (const selector of config.criticalSelectors) {
                     if ((node.matches && node.matches(selector)) || (node.querySelector && node.querySelector(selector))) {
                         capture({
-                            error_type: "UI_FAILURE",
+                            event_type: "UI_FAILURE",
                             message: `Critical error UI rendered: ${selector}`,
                             severity: "warning",
                             is_blocking: false
@@ -81,7 +81,15 @@ export function setupErrorHandlers(state) {
         if (!e.target || e.target === document) return;
         const tag = e.target.tagName ? e.target.tagName.toLowerCase() : 'unknown';
         const id = e.target.id ? `#${e.target.id}` : '';
-        const cls = typeof e.target.className === 'string' && e.target.className ? `.${e.target.className.trim().replace(/\s+/g, '.')}` : '';
+        let cls = '';
+        if (typeof e.target.className === 'string' && e.target.className) {
+            // Filter out potentially sensitive classes (long or containing numbers/dashes that look like IDs)
+            cls = e.target.className
+                .split(/\s+/)
+                .filter(name => name.length > 0 && name.length < 32 && !/[0-9]/.test(name))
+                .join('.');
+            cls = cls ? `.${cls}` : '';
+        }
         globalScope.addBreadcrumb({
             category: 'ui.click',
             message: `${tag}${id}${cls}`,

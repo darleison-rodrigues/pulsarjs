@@ -41,7 +41,7 @@ test.describe('PulsarJS E2E Payload Verification', () => {
 
         // Verify that individual events have the correct schema
         const firstEvent = postData.events[0];
-        expect(firstEvent).toHaveProperty('error_type');
+        expect(firstEvent).toHaveProperty('event_type');
         expect(firstEvent).toHaveProperty('session_id');
         expect(firstEvent).toHaveProperty('timestamp');
         expect(firstEvent).toHaveProperty('url');
