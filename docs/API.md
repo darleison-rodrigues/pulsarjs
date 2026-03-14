@@ -290,10 +290,10 @@ Pulsar.init({
 
 | HTTP | Meaning |
 |---|---|
-| `202` | Accepted — event queued |
-| `400` | Bad request — missing fields or invalid JSON |
-| `401` | Unauthorized — invalid/missing HMAC or JWT |
+| `202` | Accepted — batch queued for processing |
+| `400` | Bad request — missing `client_id`, invalid JSON, or empty events array |
 | `403` | Forbidden — origin not in allowlist |
-| `404` | Not found — invalid route or firewall block |
-| `415` | Unsupported media type — must be JSON or text/plain |
-| `500` | Internal error — missing SESSION_SECRET |
+| `404` | Not found — invalid route |
+| `415` | Unsupported media type — must be `application/json` or `text/plain` |
+| `429` | Too many requests — rate limit exceeded for this `client_id` |
+| `500` | Internal error |

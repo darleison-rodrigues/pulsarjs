@@ -2,55 +2,126 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
 
 jobs:
-  setup:
+  # ─── Shared setup ────────────────────────────────────────────
+  install:
     runs-on: ubuntu-latest
-    outputs:
-      cache-hit: ${{ steps.cache-pnpm.outputs.cache-hit }}
     steps:
       - uses: actions/checkout@v4
-      - name: Use Node.js 20
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
         with:
-          node-version: 20
-          cache: 'pnpm'
-      - name: Cache pnpm store
-        id: cache-pnpm
-        uses: pnpm/action-setup@v2
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
         with:
-          version: 8
-      - name: Install dependencies
-        run: pnpm install
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
 
-  lint-and-typecheck:
-    needs: setup
+  # ─── Lint & typecheck (fast, no build needed) ───────────────
+  lint:
+    needs: install
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Use Node.js 20
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
         with:
-          node-version: 20
-          cache: 'pnpm'
-      - name: Install deps
-        run: pnpm install
-      - name: Run ESLint
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: ESLint
         run: pnpm --recursive run lint
       - name: Typecheck
         run: pnpm run typecheck
 
-      - name: Build SDK bundle
-        run: pnpm --filter "@pulsarjs/sdk" run build
+  # ─── Build + bundle size gate ───────────────────────────────
+  build:
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build SDK
+        run: pnpm --filter @pulsarjs/sdk build
+      - name: Bundle size check (max 25KB gzip)
+        run: |
+          GZIP_SIZE=$(gzip -c packages/sdk/dist/pulsar.js | wc -c)
+          GZIP_KB=$(echo "scale=1; $GZIP_SIZE / 1024" | bc)
+          echo "::notice::Bundle size: ${GZIP_KB}KB gzip (${GZIP_SIZE} bytes)"
+          if [ "$GZIP_SIZE" -gt 25600 ]; then
+            echo "::error::Bundle exceeds 25KB gzip limit (${GZIP_KB}KB)"
+            exit 1
+          fi
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-bundle
+          path: packages/sdk/dist/
+          retention-days: 30
 
-      - name: Run Unit Tests (Vitest)
-        run: pnpm --filter "@pulsarjs/sdk" test
+  # ─── Unit tests ─────────────────────────────────────────────
+  test-unit:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build SDK
+        run: pnpm --filter @pulsarjs/sdk build
+      - name: Vitest
+        run: pnpm --filter @pulsarjs/sdk test -- --reporter=verbose
 
-      - name: Install Playwright Browsers
-        run: pnpm --filter "@pulsarjs/sdk" exec playwright install --with-deps chromium
-
-      - name: Run E2E Tests (Playwright)
-        run: pnpm --filter "@pulsarjs/sdk" test:e2e
+  # ─── E2E tests ──────────────────────────────────────────────
+  test-e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build SDK
+        run: pnpm --filter @pulsarjs/sdk build
+      - name: Install Playwright browsers
+        run: pnpm --filter @pulsarjs/sdk exec playwright install --with-deps chromium
+      - name: Playwright E2E
+        run: pnpm --filter @pulsarjs/sdk test:e2e
+      - name: Upload E2E report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: packages/sdk/test-results/
+          retention-days: 7

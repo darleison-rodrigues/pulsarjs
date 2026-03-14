@@ -45,7 +45,13 @@ New levers added to `core/config.js`:
 - `rageClickWindow`: 1000ms
 - `scrollDepthMilestones`: [25, 50, 75, 100]
 
-## 6. Cleanup & Teardown
+## 6. Campaign Attribution — Click ID Expansion
+The `CAMPAIGN_ENTRY` event now captures 16 attribution parameters (up from 8), covering the full paid acquisition ecosystem:
+- **Added**: `gbraid`, `wbraid` (Google iOS privacy), `ttclid` (TikTok), `twclid` (X/Twitter), `li_fat_id` (LinkedIn), `pin_unauth` (Pinterest), `sccid` (Snapchat), `dclid` (Google DV360), `irclickid` (Impact Radius), `aff_id`, `clickid` (generic affiliate)
+- **Existing**: `utm_*`, `gclid`, `fbclid`, `msclkid`
+- The server maps raw params to a **channel taxonomy** (channel → platform → product → intent) for ECKG enrichment.
+
+## 7. Cleanup & Teardown
 - **API Cleanup**: Removed `Pulsar.push()` (which was agent-only).
 - **DNT Removal**: Removed inconsistent "Do Not Track" checks to prioritize standard consent-based monitoring.
 - **Safe Teardown**: Full listener removal for navigation and interaction collectors on `disable()`.
