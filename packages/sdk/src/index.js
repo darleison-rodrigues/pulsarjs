@@ -217,6 +217,19 @@ const Pulsar = (function () {
                     metadata: metadata,
                     is_blocking: false
                 });
+            },
+
+            /**
+             * Manually trigger a flush of the event queue.
+             *
+             * Useful for merchants who need guaranteed delivery before a redirect
+             * (e.g. checkout submit), or for test harnesses that need to assert on
+             * captured events synchronously.
+             *
+             * @returns {Promise<void>}
+             */
+            flush: function () {
+                return pipeline.flush();
             }
         };
     }
