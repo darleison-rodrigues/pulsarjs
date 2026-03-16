@@ -3,20 +3,15 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
     ...tseslint.configs.recommended,
     {
-        files: ["src/**/*.ts"],
+        files: ["**/*.js"],
         rules: {
             "no-console": "warn",
             "no-unused-vars": "off",
-            "@typescript-eslint/no-unused-vars": [
-                "error",
-                {
-                    "argsIgnorePattern": "^_",
-                    "varsIgnorePattern": "^_",
-                    "caughtErrorsIgnorePattern": "^_"
-                }
-            ],
-            "@typescript-eslint/no-explicit-any": "warn",
-            "@typescript-eslint/ban-ts-comment": "warn"
+            "@typescript-eslint/no-unused-vars": ["error", { 
+                "argsIgnorePattern": "^_",
+                "varsIgnorePattern": "^_",
+                "caughtErrorsIgnorePattern": "^_"
+            }],
         },
         languageOptions: {
             parserOptions: {

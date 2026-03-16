@@ -1,18 +1,17 @@
 /**
  * PulsarJS — Capture & Flush Pipeline
- * Queue management, deduplication, HMAC signing, beacon delivery, retry logic.
+ * Queue management, deduplication, beacon delivery, retry logic.
  *
  * Change log:
  *   PUL-030 — flush() never calls capture() — recursive FLUSH_FAILED eliminated (rescue pattern)
  *   PUL-030 — isFlushing guard — one flush in flight at a time (concurrency safety)
  *   PUL-030 — Queue snapshot before awaits — events arriving during flush are not lost
- *   PUL-030 — sendBeacon primary transport — HMAC signature wrapped inside body, NOT in URL
+ *   PUL-030 — sendBeacon primary transport
  *   PUL-030 — flushOnHide() — page-hide path bypasses isFlushing (tab-close delivery)
  *   PUL-030 — 200 ms debounce — burst events collapse into one request
  *   PUL-030 — Rescue slice order — newest events survive capacity overflow
  *   PUL-030 — beforeSendTimeout uses ?? (not ||) — 0 is a valid caller-supplied value
  *   PUL-030 — QUEUE_OVERFLOW context captured at drop time, not flush time
- *   PUL-032 — generateSignature takes debug param (no module-level state ref)
  *   PUL-032 — module-level `state` singleton eliminated; each pipeline owns its closure
  */
 import { Sanitizers } from '../utils/sanitizers.js';
@@ -36,55 +35,6 @@ export function hash(str) {
 }
 
 /**
- * Generate HMAC-SHA256 signature over a payload object.
- *
- * Takes `debug` as an explicit argument (never reads module-level `state`) so
- * it is safe to call before createCapturePipeline has initialised.
- *
- * @param {object}  payload
- * @param {string}  secret
- * @param {boolean} [debug=false]
- * @returns {Promise<string|null>}
- */
-export async function generateSignature(payload, secret, debug = false) {
-    if (!secret || typeof crypto === 'undefined' || !crypto.subtle) return null;
-    try {
-        const encoder = new TextEncoder();
-        const keyData = encoder.encode(secret);
-        const msgData = encoder.encode(JSON.stringify(payload));
-        const key = await crypto.subtle.importKey(
-            'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-        );
-        const sig = await crypto.subtle.sign('HMAC', key, msgData);
-        return btoa(String.fromCharCode(...new Uint8Array(sig)));
-    } catch (e) {
-        if (debug) console.error('[Pulsar] HMAC generation failed', e);
-        return null;
-    }
-}
-
-/**
- * Build a sendBeacon-compatible Blob.
- * The HMAC signature is wrapped inside the body — NEVER in the URL — to prevent
- * it appearing in server/CDN access logs, Referer headers, or browser history,
- * and to eliminate replay-attack surface from static URL+signature pairs.
- *
- * Wire format: { sig: string|null, payload: BatchObject }
- * The ingest worker extracts `sig`, re-computes HMAC over `payload`, and rejects
- * on mismatch before touching any event data.
- *
- * @param {object}      batch
- * @param {string|null} signature
- * @returns {Blob}
- */
-function buildBeaconBlob(batch, signature) {
-    return new Blob(
-        [JSON.stringify({ sig: signature, payload: batch })],
-        { type: 'application/json' }
-    );
-}
-
-/**
  * Create the capture pipeline bound to shared SDK state.
  *
  * Each call returns an independent pipeline with its own closure — calling this
@@ -98,6 +48,7 @@ export function createCapturePipeline(sharedState) {
     const state = sharedState;
 
     const _fingerprintCache = new Map();
+    let _eventSeq = 0;
 
     // --- Flush scheduling ---
     let flushTimer = null;
@@ -125,7 +76,7 @@ export function createCapturePipeline(sharedState) {
         // errors thrown in a promise storm) all see the cached slot and short-
         // circuit. There is no await between the cache check and the cache set.
         if (!bypassDedupe) {
-            const fingerprint = hash(`${errorData.error_type}|${errorData.message}|${window.location.pathname}`);
+            const fingerprint = hash(`${errorData.event_type}|${errorData.message}|${window.location.pathname}`);
             const isCheckout = /checkout/i.test(window.location.pathname);
 
             if (!isCheckout) {
@@ -141,19 +92,21 @@ export function createCapturePipeline(sharedState) {
         }
 
         let payload = {
+            event_id: `${state.sessionID}:${++_eventSeq}`,
             client_id: state.config.clientId,
             storefront_type: state.config.storefrontType,
             site_id: state.config.siteId,
             session_id: state.sessionID,
-            url: window.location.href,
+            url: Sanitizers.sanitizeUrl(window.location.href),
             timestamp: new Date().toISOString(),
-            error_type: errorData.error_type,
+            event_type: errorData.event_type || errorData.error_type || 'UNKNOWN',
             message: Sanitizers.redactPII(errorData.message || 'Unknown error'),
             response_snippet: errorData.response_snippet
                 ? Sanitizers.redactPII(errorData.response_snippet)
                 : null,
             severity: errorData.severity || 'error',
             is_blocking: errorData.is_blocking || false,
+            metrics: errorData.metrics || null,
             metadata: { ...errorData.metadata, ...state.extractSFCCContext() },
             environment: state.captureEnvironment(),
             device_type: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
@@ -164,6 +117,7 @@ export function createCapturePipeline(sharedState) {
 
         // ── beforeSend hook ──────────────────────────────────────────────────
         if (typeof state.config.beforeSend === 'function') {
+            let timeoutId;
             try {
                 // ?? not || — callers may legitimately pass 0 to disable the timeout
                 const timeoutMs = state.config.beforeSendTimeout ?? 2000;
@@ -188,6 +142,8 @@ export function createCapturePipeline(sharedState) {
                 } else {
                     if (state.config.debug) console.warn('[Pulsar] beforeSend hook threw an error', e);
                 }
+            } finally {
+                clearTimeout(timeoutId); // H3: Clear timeout to prevent leak
             }
         }
 
@@ -229,10 +185,6 @@ export function createCapturePipeline(sharedState) {
     async function flush() {
         if (isFlushing) return;
         if (state.queue.length === 0 && state.droppedSinceLastFlush === 0) return;
-        if (!state.config.secret) {
-            if (state.config.debug) console.warn('[Pulsar] No HMAC secret configured. Cannot flush.');
-            return;
-        }
 
         isFlushing = true;
         flushTimer = null;
@@ -260,10 +212,6 @@ export function createCapturePipeline(sharedState) {
      * beacon synchronously.
      *
      * Limitations:
-     *  - generateSignature is async (crypto.subtle). By the time it resolves,
-     *    the browser may have already torn down the context. We therefore send
-     *    WITHOUT a signature on page hide and mark the batch with _unload: true
-     *    so the ingest layer can apply an appropriate trust level.
      *  - If sendBeacon is unavailable, events are silently lost (expected: there
      *    is no reliable synchronous delivery alternative on unload).
      */
@@ -289,11 +237,11 @@ export function createCapturePipeline(sharedState) {
             timestamp: new Date().toISOString(),
             events: snapshot,
             dropped_events: state.droppedEventsCount,
-            _unload: true  // signals ingest: unsigned page-hide beacon
+            _unload: true  // signals ingest: page-hide beacon
         };
 
-        // sig: null — cannot await crypto.subtle in an unload handler
-        navigator.sendBeacon(state.config.endpoint, buildBeaconBlob(batch, null));
+        const blob = new Blob([JSON.stringify(batch)], { type: 'application/json' });
+        navigator.sendBeacon(state.config.endpoint, blob);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -310,7 +258,7 @@ export function createCapturePipeline(sharedState) {
                 session_id: state.firstDropSessionId || state.sessionID,
                 url: state.firstDropUrl || window.location.href,
                 timestamp: new Date().toISOString(),
-                error_type: 'QUEUE_OVERFLOW',
+                event_type: 'QUEUE_OVERFLOW',
                 message: `Dropped ${state.droppedSinceLastFlush} events due to queue limits`,
                 metadata: {
                     dropped_count: state.droppedSinceLastFlush,
@@ -342,17 +290,15 @@ export function createCapturePipeline(sharedState) {
         state.queue = [];
         // ─────────────────────────────────────────────────────────────────────
 
-        const signature = await generateSignature(batch, state.config.secret, state.config.debug);
         const endpoint = state.config.endpoint;
         const nativeFetch = state.originalFetch || window.fetch;
+        const payloadStr = JSON.stringify(batch);
 
         // ── sendBeacon — primary transport ────────────────────────────────────
         // Works during page unload, no CORS preflight, fire-and-forget.
-        // HMAC signature is wrapped inside the body — never in the URL — to
-        // prevent it appearing in access logs, Referer headers, or browser
-        // history (which would enable replay attacks with a static URL+sig pair).
         if (navigator.sendBeacon) {
-            if (navigator.sendBeacon(endpoint, buildBeaconBlob(batch, signature))) {
+            const blob = new Blob([payloadStr], { type: 'application/json' });
+            if (navigator.sendBeacon(endpoint, blob)) {
                 return; // delivered
             }
             // sendBeacon returned false — browser queue full or context restricted.
@@ -365,11 +311,9 @@ export function createCapturePipeline(sharedState) {
             'Content-Type': 'application/json',
             'X-Pulsar-Client-Id': state.config.clientId
         };
-        if (signature) headers['X-Pulsar-Signature'] = signature;
 
         let success = false;
         const maxRetries = 3;
-        const payloadStr = JSON.stringify(batch);
 
         for (let attempt = 1; attempt <= maxRetries && !success; attempt++) {
             try {
@@ -409,7 +353,7 @@ export function createCapturePipeline(sharedState) {
                 );
             }
 
-            const rescuable = batch.events.filter(e => e.error_type !== 'QUEUE_OVERFLOW');
+            const rescuable = batch.events.filter(e => e.event_type !== 'QUEUE_OVERFLOW');
             const combined = [...rescuable, ...state.queue]; // oldest → newest
             const overflow = combined.length - MAX_QUEUE_SIZE;
             if (overflow > 0) {

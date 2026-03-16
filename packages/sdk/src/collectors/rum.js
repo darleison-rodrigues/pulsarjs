@@ -49,6 +49,18 @@ export function resetWebVitals() {
 export function setupPerformanceObserver(state) {
     if (typeof PerformanceObserver === 'undefined') return;
 
+    // Initialize metrics in state if not present
+    state.webVitals = state.webVitals || {
+        lcp: null,
+        inp: null,
+        inp_interaction_id: null,
+        cls: 0,
+        ttfb: null,
+        loadTime: null
+    };
+
+    const vitals = state.webVitals;
+
     try {
         // LCP — always take the latest entry (browser may emit several)
         new PerformanceObserver((entryList) => {
@@ -64,9 +76,9 @@ export function setupPerformanceObserver(state) {
             new PerformanceObserver((entryList) => {
                 entryList.getEntries().forEach(entry => {
                     if (!entry.interactionId) return;
-                    if (webVitals.inp === null || entry.duration > webVitals.inp) {
-                        webVitals.inp = entry.duration;
-                        webVitals.inp_interaction_id = entry.interactionId;
+                    if (vitals.inp === null || entry.duration > vitals.inp) {
+                        vitals.inp = entry.duration;
+                        vitals.inp_interaction_id = entry.interactionId;
                     }
                 });
             }).observe({ type: 'event', durationThreshold: 40, buffered: true });
@@ -84,7 +96,7 @@ export function setupPerformanceObserver(state) {
         // CLS — accumulate all non-user-initiated layout shifts
         new PerformanceObserver((entryList) => {
             for (const entry of entryList.getEntries()) {
-                if (!entry.hadRecentInput) webVitals.cls += entry.value;
+                if (!entry.hadRecentInput) vitals.cls += entry.value;
             }
         }).observe({ type: 'layout-shift', buffered: true });
 
@@ -225,9 +237,7 @@ export function captureRUM(state, url = window.location.href) {
         event_type: 'RUM_METRICS',
         metrics: { ...webVitals },       // snapshot — not live reference
         metadata: state.extractSFCCContext(),
-        environment: state.captureEnvironment(),
-        device_type: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
-        dropped_events: state.droppedEventsCount
+        environment: state.captureEnvironment()
     };
 
     state.queue.push(payload);

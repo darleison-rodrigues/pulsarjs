@@ -2,14 +2,12 @@
 
 ## Supported Versions
 
-We actively maintain and backport security fixes to the following versions:
+We actively maintain the following versions:
 
 | Version | Supported          | Notes                          |
 | ------- | ------------------ | ------------------------------ |
-| 5.1.x   | ✅                 | Current stable release         |
-| 5.0.x   | ❌                 | End of life — please upgrade   |
-| 4.0.x   | ✅                 | Long-term support (LTS)        |
-| < 4.0   | ❌                 | No longer maintained           |
+| 1.0.x   | ✅                 | Current stable release         |
+| < 1.0   | ❌                 | Legacy / Pre-release           |
 
 If you are running an unsupported version, we strongly recommend upgrading before reporting a vulnerability, as the issue may already be resolved.
 
@@ -34,7 +32,7 @@ Use [GitHub's private vulnerability reporting](../../security/advisories/new) to
 
 ### Alternative — Email
 
-If you are unable to use GitHub's advisory flow, email us at **security@yourproject.dev** with the subject line `[SECURITY] <brief description>`. Use our PGP key (see below) for sensitive disclosures.
+If you are unable to use GitHub's advisory flow, email us at **security@pulsarjs.com** with the subject line `[SECURITY] <brief description>`. Use our PGP key (see below) for sensitive disclosures.
 
 ### What to Include
 

@@ -15,5 +15,5 @@ export function generateSessionID() {
         });
     }
     console.warn('[Pulsar] Secure crypto unavailable for Session ID');
-    return '00000000-0000-4000-0000-000000000000';
+    return null;
 }

@@ -3,10 +3,16 @@
     "version": "1.0.0",
     "private": true,
     "scripts": {
-        "build": "esbuild src/index.js --bundle --minify --outfile=dist/p.js --sourcemap --format=iife",
-        "build:dev": "esbuild src/index.js --bundle --outfile=dist/pulsar.js --sourcemap --format=iife"
+        "build": "esbuild src/index.js --bundle --minify --outfile=dist/pulsar.js --sourcemap --format=iife",
+        "build:dev": "esbuild src/index.js --bundle --outfile=dist/pulsar.dev.js --sourcemap --format=iife",
+        "test": "vitest run",
+        "test:e2e": "playwright test"
     },
     "devDependencies": {
-        "esbuild": "^0.27.3"
+        "@playwright/test": "^1.58.2",
+        "esbuild": "^0.27.3",
+        "jsdom": "^28.1.0",
+        "serve": "^14.2.5",
+        "vitest": "^4.0.18"
     }
 }
