@@ -24,7 +24,7 @@ export const webVitals = {
     inp_interaction_id: null,
     cls: 0,
     ttfb: null,
-    loadTime: null
+    load_time_ms: null
 };
 
 /**
@@ -37,7 +37,7 @@ export function resetWebVitals() {
     webVitals.inp_interaction_id = null;
     webVitals.cls = 0;
     webVitals.ttfb = null;
-    webVitals.loadTime = null;
+    webVitals.load_time_ms = null;
 }
 
 /**
@@ -56,7 +56,7 @@ export function setupPerformanceObserver(state) {
         inp_interaction_id: null,
         cls: 0,
         ttfb: null,
-        loadTime: null
+        load_time_ms: null
     };
 
     const vitals = state.webVitals;
@@ -106,7 +106,7 @@ export function setupPerformanceObserver(state) {
                 if (window.performance && window.performance.timing) {
                     const t = window.performance.timing;
                     webVitals.ttfb = Math.max(0, t.responseStart - t.navigationStart);
-                    webVitals.loadTime = Math.max(0, t.loadEventEnd - t.navigationStart);
+                    webVitals.load_time_ms = Math.max(0, t.loadEventEnd - t.navigationStart);
                 }
             }, 0);
         });

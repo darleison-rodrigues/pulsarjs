@@ -32,7 +32,12 @@ export class Scope {
             user: this._user,
             tags: this._tags,
             extra: this._extra,
-            breadcrumbs: this._breadcrumbs
+            breadcrumbs: this._breadcrumbs.map(crumb => ({
+                ...crumb,
+                timestamp: typeof crumb.timestamp === 'number'
+                    ? new Date(crumb.timestamp).toISOString()
+                    : crumb.timestamp
+            }))
         };
     }
 

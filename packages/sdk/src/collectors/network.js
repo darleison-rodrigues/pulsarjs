@@ -66,7 +66,7 @@ export function setupFetchInterceptor(state) {
                     event_type: "API_FAILURE",
                     message: `API HTTP ${response.status}: ${Sanitizers.sanitizeApiEndpoint(response.url)}`,
                     response_snippet: bodySnippet,
-                    metadata: { status: response.status, endpoint: Sanitizers.sanitizeApiEndpoint(response.url), method, duration_ms: duration },
+                    metadata: { status: response.status, endpoint: Sanitizers.sanitizeApiEndpoint(response.url), method, duration_ms: Math.round(duration) },
                     severity: response.status >= 500 ? "error" : "warning",
                     is_blocking: false
                 });
@@ -81,7 +81,7 @@ export function setupFetchInterceptor(state) {
                             action: commerceAction,
                             endpoint: Sanitizers.sanitizeApiEndpoint(requestUrl),
                             method,
-                            duration_ms: duration
+                            duration_ms: Math.round(duration)
                         },
                         severity: "info",
                         is_blocking: false
@@ -92,7 +92,7 @@ export function setupFetchInterceptor(state) {
                     capture({
                         event_type: "API_LATENCY",
                         message: `Slow API: ${Sanitizers.sanitizeApiEndpoint(response.url)}`,
-                        metadata: { endpoint: Sanitizers.sanitizeApiEndpoint(response.url), method, duration_ms: duration },
+                        metadata: { endpoint: Sanitizers.sanitizeApiEndpoint(response.url), method, duration_ms: Math.round(duration) },
                         severity: "info",
                         is_blocking: false
                     });
@@ -153,7 +153,7 @@ export function setupXHRInterceptor(state) {
                             capture({
                                 event_type: "NETWORK_ERROR",
                                 message: `XHR Network Error: ${Sanitizers.sanitizeApiEndpoint(this._url)}`,
-                                metadata: { method: this._method, endpoint: Sanitizers.sanitizeApiEndpoint(this._url), duration_ms: duration },
+                                metadata: { method: this._method, endpoint: Sanitizers.sanitizeApiEndpoint(this._url), duration_ms: Math.round(duration) },
                                 severity: "error",
                                 is_blocking: false
                             });
@@ -166,7 +166,7 @@ export function setupXHRInterceptor(state) {
                                 event_type: "API_FAILURE",
                                 message: `XHR HTTP ${this.status}: ${Sanitizers.sanitizeApiEndpoint(this._url)}`,
                                 response_snippet: bodySnippet,
-                                metadata: { status: this.status, endpoint: Sanitizers.sanitizeApiEndpoint(this._url), method: this._method, duration_ms: duration },
+                                metadata: { status: this.status, endpoint: Sanitizers.sanitizeApiEndpoint(this._url), method: this._method, duration_ms: Math.round(duration) },
                                 severity: this.status >= 500 ? "error" : "warning",
                                 is_blocking: false
                             });
@@ -181,7 +181,7 @@ export function setupXHRInterceptor(state) {
                                         action: commerceAction,
                                         endpoint: Sanitizers.sanitizeApiEndpoint(this._url),
                                         method: this._method,
-                                        duration_ms: duration
+                                        duration_ms: Math.round(duration)
                                     },
                                     severity: "info",
                                     is_blocking: false
@@ -192,7 +192,7 @@ export function setupXHRInterceptor(state) {
                                 capture({
                                     event_type: "API_LATENCY",
                                     message: `Slow XHR: ${Sanitizers.sanitizeApiEndpoint(this._url)}`,
-                                    metadata: { endpoint: Sanitizers.sanitizeApiEndpoint(this._url), method: this._method, duration_ms: duration },
+                                    metadata: { endpoint: Sanitizers.sanitizeApiEndpoint(this._url), method: this._method, duration_ms: Math.round(duration) },
                                     severity: "info",
                                     is_blocking: false
                                 });
