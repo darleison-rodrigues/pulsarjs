@@ -30,7 +30,7 @@ export function setupErrorHandlers(state) {
         // and fire on the same 'error' event type but with no event.message.
         if (!event.message) return;
         capture({
-            error_type: 'JS_CRASH',
+            event_type: 'JS_CRASH',
             message: event.message,
             response_snippet: event.error ? event.error.stack : `${event.filename}:${event.lineno}:${event.colno}`,
             severity: 'error',
@@ -42,7 +42,7 @@ export function setupErrorHandlers(state) {
     // ── JS_CRASH: unhandled promise rejections ──────────────────────────────
     state.rejectionHandler = function (event) {
         capture({
-            error_type: 'JS_CRASH',
+            event_type: 'JS_CRASH',
             message: event.reason ? event.reason.toString() : 'Unhandled Promise Rejection',
             response_snippet: event.reason && event.reason.stack ? event.reason.stack : null,
             severity: 'error',
@@ -70,7 +70,7 @@ export function setupErrorHandlers(state) {
                         (node.querySelector && node.querySelector(selector))
                     ) {
                         capture({
-                            error_type: 'UI_FAILURE',
+                            event_type: 'UI_FAILURE',
                             message: `Critical error UI rendered: ${selector}`,
                             severity: 'warning',
                             is_blocking: false
