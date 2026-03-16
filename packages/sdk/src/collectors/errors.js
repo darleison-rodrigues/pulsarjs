@@ -1,43 +1,59 @@
 /**
  * PulsarJS — Error Collectors
- * Global error handlers: onerror, unhandledrejection, MutationObserver.
+ * Global error handlers: error, unhandledrejection, MutationObserver.
+ *
+ * PUL-033: switched from window.onerror / window.onunhandledrejection property
+ * assignment to addEventListener(). Property assignment is a single slot —
+ * any script executing after Pulsar (GTM, Bazaarvoice, Einstein, Salesforce
+ * Einstein) silently overwrites it and Pulsar stops catching errors with zero
+ * indication of failure. addEventListener() stacks — all listeners fire.
+ *
+ * Teardown: handler references are stored on state so disable() can call
+ * removeEventListener() cleanly. MutationObserver is also stored on state
+ * (was a local variable before — could never be disconnected on disable()).
  */
 
 /**
- * Set up global error handlers. Returns cleanup references on the state object.
+ * Set up global error handlers. Stores handler refs on state for teardown.
+ *
+ * @param {object} state - Shared SDK state
  */
 export function setupErrorHandlers(state) {
     const { config, capture, globalScope } = state;
 
-    // Preserve originals for teardown
-    state.originalOnerror = window.onerror;
-    state.originalOnunhandledrejection = window.onunhandledrejection;
-
-    window.onerror = function (msg, url, line, col, error) {
+    // ── JS_CRASH: uncaught synchronous errors ────────────────────────────────
+    // addEventListener('error') stacks with any other listener on the page.
+    // The old window.onerror = assignment was a single slot — anything running
+    // after Pulsar (GTM tags, third-party widgets) would overwrite it silently.
+    state.errorHandler = function (event) {
+        // Skip resource-load errors (img, script, link) — they have no stack
+        // and fire on the same 'error' event type but with no event.message.
+        if (!event.message) return;
         capture({
-            event_type: "JS_CRASH",
-            message: msg,
-            url: window.location.href,
-            response_snippet: error ? error.stack : `${url}:${line}:${col}`,
-            severity: "error",
+            error_type: 'JS_CRASH',
+            message: event.message,
+            response_snippet: event.error ? event.error.stack : `${event.filename}:${event.lineno}:${event.colno}`,
+            severity: 'error',
             is_blocking: true
         });
-        if (state.originalOnerror) state.originalOnerror.apply(this, arguments);
     };
+    window.addEventListener('error', state.errorHandler);
 
-    window.onunhandledrejection = function (event) {
+    // ── JS_CRASH: unhandled promise rejections ──────────────────────────────
+    state.rejectionHandler = function (event) {
         capture({
-            event_type: "JS_CRASH",
+            error_type: 'JS_CRASH',
             message: event.reason ? event.reason.toString() : 'Unhandled Promise Rejection',
-            url: window.location.href,
             response_snippet: event.reason && event.reason.stack ? event.reason.stack : null,
-            severity: "error",
+            severity: 'error',
             is_blocking: false
         });
-        if (state.originalOnunhandledrejection) state.originalOnunhandledrejection.apply(this, arguments);
     };
+    window.addEventListener('unhandledrejection', state.rejectionHandler);
 
-    // MutationObserver: detect critical error UI rendering (debounced)
+    // ── UI_FAILURE: MutationObserver for critical error selectors ────────────
+    // Observer ref is stored on state so disable() can call .disconnect().
+    // Previously it was a local variable — disable() had no way to reach it.
     if (typeof MutationObserver !== 'undefined' && config.criticalSelectors.length > 0) {
         let mutationBuffer = [];
         let mutationTimeout = null;
@@ -49,11 +65,14 @@ export function setupErrorHandlers(state) {
 
             nodesToProcess.forEach(node => {
                 for (const selector of config.criticalSelectors) {
-                    if ((node.matches && node.matches(selector)) || (node.querySelector && node.querySelector(selector))) {
+                    if (
+                        (node.matches && node.matches(selector)) ||
+                        (node.querySelector && node.querySelector(selector))
+                    ) {
                         capture({
-                            event_type: "UI_FAILURE",
+                            error_type: 'UI_FAILURE',
                             message: `Critical error UI rendered: ${selector}`,
-                            severity: "warning",
+                            severity: 'warning',
                             is_blocking: false
                         });
                     }
@@ -61,7 +80,7 @@ export function setupErrorHandlers(state) {
             });
         };
 
-        const observer = new MutationObserver((mutations) => {
+        state.mutationObserver = new MutationObserver((mutations) => {
             for (const mutation of mutations) {
                 if (mutation.type === 'childList') {
                     mutation.addedNodes.forEach(node => {
@@ -73,23 +92,19 @@ export function setupErrorHandlers(state) {
                 mutationTimeout = setTimeout(processMutations, 100);
             }
         });
-        observer.observe(document.body, { childList: true, subtree: true });
+        state.mutationObserver.observe(document.body, { childList: true, subtree: true });
     }
 
-    // Click breadcrumbs
+    // ── Click breadcrumbs ────────────────────────────────────────────────────
     state.interactionHandler = function (e) {
         if (!e.target || e.target === document) return;
         const tag = e.target.tagName ? e.target.tagName.toLowerCase() : 'unknown';
         const id = e.target.id ? `#${e.target.id}` : '';
-        let cls = '';
-        if (typeof e.target.className === 'string' && e.target.className) {
-            // Filter out potentially sensitive classes (long or containing numbers/dashes that look like IDs)
-            cls = e.target.className
-                .split(/\s+/)
-                .filter(name => name.length > 0 && name.length < 32 && !/[0-9]/.test(name))
-                .join('.');
-            cls = cls ? `.${cls}` : '';
-        }
+        // PUL-037 (hardening): className will be stripped here to avoid
+        // capturing form-field identity (GDPR). Placeholder until that ticket.
+        const cls = typeof e.target.className === 'string' && e.target.className
+            ? `.${e.target.className.trim().replace(/\s+/g, '.')}`
+            : '';
         globalScope.addBreadcrumb({
             category: 'ui.click',
             message: `${tag}${id}${cls}`,

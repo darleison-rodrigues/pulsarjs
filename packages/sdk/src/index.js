@@ -41,16 +41,23 @@ const Pulsar = (function () {
             _droppedEventsCount: 0,
             droppedSinceLastFlush: 0,
             firstDropTimestamp: null,
+            firstDropUrl: null,  // URL captured at drop time (accurate in SPAs)
+            firstDropSessionId: null,  // session captured at drop time
             queue: [],
 
-            // Original references for teardown
+            // Handler references for teardown (PUL-033: addEventListener pattern)
             originalFetch: null,
-            originalOnerror: null,
-            originalOnunhandledrejection: null,
             originalXhrOpen: null,
             originalXhrSend: null,
+            errorHandler: null,  // window 'error' listener
+            rejectionHandler: null,  // window 'unhandledrejection' listener
+            mutationObserver: null,  // MutationObserver for critical selectors
             visibilityHandler: null,
             interactionHandler: null,
+            // SPA navigation hook (PUL-034)
+            originalPushState: null,
+            originalReplaceState: null,
+            spaNavigationHandler: null,
 
             // Navigation teardown refs
             _navOriginalPushState: null,
@@ -66,15 +73,16 @@ const Pulsar = (function () {
             // Bound helpers for modules
             extractSFCCContext: () => extractSFCCContext(extractCampaigns),
             captureEnvironment: captureEnvironment,
-            capture: null,
-            flush: null,
-            processedErrors: new WeakSet()
+            capture: null, // set after pipeline creation
+            flush: null, // set after pipeline creation
+            flushOnHide: null  // set after pipeline creation — bypasses isFlushing for page-hide
         };
 
         // Create capture pipeline and bind to state
         const pipeline = createCapturePipeline(state);
         state.capture = pipeline.capture;
         state.flush = pipeline.flush;
+        state.flushOnHide = pipeline.flushOnHide;
 
         // Public API
         return {
@@ -115,7 +123,12 @@ const Pulsar = (function () {
                     state.visibilityHandler = () => {
                         if (document.visibilityState === 'hidden') {
                             captureRUM(state);
-                            pipeline.flush();
+                            // flushOnHide bypasses the isFlushing concurrency guard.
+                            // This is intentional: on page hide, events sitting in
+                            // state.queue may have no scheduled flush (the debounce
+                            // already fired, isFlushing is true from a slow retry).
+                            // sendBeacon is fire-and-forget; we MUST call it here.
+                            pipeline.flushOnHide();
                         }
                     };
                     document.addEventListener('visibilitychange', state.visibilityHandler);
@@ -148,12 +161,16 @@ const Pulsar = (function () {
                     state.originalXhrOpen = null;
                     state.originalXhrSend = null;
                 }
-                if (state.originalOnerror !== null) { window.onerror = state.originalOnerror; state.originalOnerror = null; }
-                if (state.originalOnunhandledrejection !== null) { window.onunhandledrejection = state.originalOnunhandledrejection; state.originalOnunhandledrejection = null; }
-
-                // Remove event listeners
+                // PUL-033: removeEventListener — symmetric with addEventListener in errors.js
+                if (state.errorHandler) { window.removeEventListener('error', state.errorHandler); state.errorHandler = null; }
+                if (state.rejectionHandler) { window.removeEventListener('unhandledrejection', state.rejectionHandler); state.rejectionHandler = null; }
+                if (state.mutationObserver) { state.mutationObserver.disconnect(); state.mutationObserver = null; }
                 if (state.visibilityHandler) { document.removeEventListener('visibilitychange', state.visibilityHandler); state.visibilityHandler = null; }
                 if (state.interactionHandler) { document.body.removeEventListener('click', state.interactionHandler, true); state.interactionHandler = null; }
+                // PUL-034: restore history methods and remove popstate listener
+                if (state.originalPushState) { history.pushState = state.originalPushState; state.originalPushState = null; }
+                if (state.originalReplaceState) { history.replaceState = state.originalReplaceState; state.originalReplaceState = null; }
+                if (state.spaNavigationHandler) { window.removeEventListener('popstate', state.spaNavigationHandler); state.spaNavigationHandler = null; }
 
                 // Teardown navigation tracking
                 if (state._navOriginalPushState) { history.pushState = state._navOriginalPushState; state._navOriginalPushState = null; }
