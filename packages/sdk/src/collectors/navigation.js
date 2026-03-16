@@ -40,17 +40,19 @@ export function setupNavigationTracking(state) {
     let currentPath = window.location.pathname;
     let currentPageInfo = inferPageType(currentPath, config.pageTypes);
 
-    // Initial page view
-    emitPageView(state, currentPageInfo, classifyReferrer(), null);
+    // Initial page view — await to ensure firstPageViewEventId is set before campaign entry
+    (async () => {
+        await emitPageView(state, currentPageInfo, classifyReferrer(), null);
 
-    // Campaign entry — fire once per session if UTM/ad params present
-    emitCampaignEntry(state);
+        // Campaign entry — fire once per session if UTM/ad params present
+        emitCampaignEntry(state);
+    })();
 
     // Patch History API for SPA navigation (PWA Kit uses React Router → pushState)
     const originalPushState = history.pushState;
     const originalReplaceState = history.replaceState;
 
-    const onRouteChange = () => {
+    const onRouteChange = async () => {
         const newPath = window.location.pathname;
         if (newPath === currentPath) return;
 
@@ -58,7 +60,7 @@ export function setupNavigationTracking(state) {
         currentPath = newPath;
         currentPageInfo = inferPageType(newPath, config.pageTypes);
 
-        emitPageView(state, currentPageInfo, 'internal', prevPageType);
+        await emitPageView(state, currentPageInfo, 'internal', prevPageType);
 
         // Reset scroll depth milestones for new page
         if (state._scrollMilestones) state._scrollMilestones.clear();
@@ -78,6 +80,12 @@ export function setupNavigationTracking(state) {
 
     // Tab visibility — reveals engagement gaps in the event stream
     const onVisibility = () => {
+        // PUL-028: abandoned_at edge — tab hidden after commerce, not checkout
+        const isHidden = document.visibilityState === 'hidden';
+        const abandonEdge = isHidden
+            && state.lastCommerceEventId
+            && state.lastCommerceAction?.action !== 'checkout';
+
         state.capture({
             event_type: 'TAB_VISIBILITY',
             message: `Tab ${document.visibilityState}`,
@@ -86,7 +94,8 @@ export function setupNavigationTracking(state) {
                 page_type: currentPageInfo.type
             },
             severity: 'info',
-            is_blocking: false
+            is_blocking: false,
+            ...(abandonEdge ? { caused_by: state.lastCommerceEventId, edge_hint: 'abandoned_at' } : {})
         });
     };
     document.addEventListener('visibilitychange', onVisibility);
@@ -98,7 +107,7 @@ export function setupNavigationTracking(state) {
     state._navVisibilityHandler = onVisibility;
 }
 
-function emitPageView(state, pageInfo, referrerType, fromPageType) {
+async function emitPageView(state, pageInfo, referrerType, fromPageType) {
     const metadata = {
         page_type: pageInfo.type,
         referrer_type: referrerType,
@@ -107,13 +116,18 @@ function emitPageView(state, pageInfo, referrerType, fromPageType) {
     };
     if (pageInfo.product_ref) metadata.product_ref = pageInfo.product_ref;
 
-    state.capture({
+    const eventId = await state.capture({
         event_type: 'PAGE_VIEW',
         message: `Page: ${pageInfo.type}`,
         metadata,
         severity: 'info',
         is_blocking: false
     });
+
+    // PUL-028: track first PAGE_VIEW for caused edge
+    if (!state.firstPageViewEventId && eventId) {
+        state.firstPageViewEventId = eventId;
+    }
 }
 
 function emitCampaignEntry(state) {
@@ -152,7 +166,10 @@ function emitCampaignEntry(state) {
             message: `Campaign: ${data.utm_source || 'paid'}`,
             metadata: data,
             severity: 'info',
-            is_blocking: false
+            is_blocking: false,
+            ...(state.firstPageViewEventId
+                ? { caused_by: state.firstPageViewEventId, edge_hint: 'caused' }
+                : {})
         });
     } catch { /* URLSearchParams not supported — rare */ }
 }

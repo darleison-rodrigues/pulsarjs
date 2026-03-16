@@ -68,7 +68,7 @@ export function createCapturePipeline(sharedState) {
     // capture()
     // ─────────────────────────────────────────────────────────────────────────
     async function capture(errorData, localScope = state.globalScope, bypassDedupe = false) {
-        if (!state.enabled || !state.isInitialized) return;
+        if (!state.enabled || !state.isInitialized) return null;
 
         // ── Deduplication ────────────────────────────────────────────────────
         // INVARIANT: fingerprint slot is claimed BEFORE any await so that
@@ -84,15 +84,16 @@ export function createCapturePipeline(sharedState) {
                 const cached = _fingerprintCache.get(fingerprint);
                 if (cached && (now - cached.timestamp < 60000)) {
                     cached.count++;
-                    return;
+                    return null;
                 }
                 // Claim the slot synchronously — before any await below.
                 _fingerprintCache.set(fingerprint, { timestamp: now, count: 1 });
             }
         }
 
+        const eventId = `${state.sessionID}:${++_eventSeq}`;
         let payload = {
-            event_id: `${state.sessionID}:${++_eventSeq}`,
+            event_id: eventId,
             client_id: state.config.clientId,
             storefront_type: state.config.storefrontType,
             site_id: state.config.siteId,
@@ -114,6 +115,12 @@ export function createCapturePipeline(sharedState) {
             scope: localScope.getScopeData(),
             dropped_events: state.droppedEventsCount
         };
+
+        // PUL-028: edge hints — only include when present (not null)
+        if (errorData.caused_by) {
+            payload.caused_by = errorData.caused_by;
+            payload.edge_hint = errorData.edge_hint;
+        }
 
         // ── beforeSend hook ──────────────────────────────────────────────────
         if (typeof state.config.beforeSend === 'function') {
@@ -149,7 +156,7 @@ export function createCapturePipeline(sharedState) {
 
         if (payload === null) {
             if (state.config.debug) console.log('[Pulsar] Event dropped by beforeSend hook');
-            return;
+            return null;
         }
 
         // ── Enqueue ──────────────────────────────────────────────────────────
@@ -166,6 +173,8 @@ export function createCapturePipeline(sharedState) {
         }
 
         scheduleFlush();
+
+        return eventId;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
