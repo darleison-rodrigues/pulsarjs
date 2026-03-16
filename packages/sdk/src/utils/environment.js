@@ -8,9 +8,9 @@
  */
 export function captureEnvironment() {
     return {
-        time_since_load: typeof performance !== 'undefined' ? Math.floor(performance.now()) : 0,
+        time_since_load_ms: typeof performance !== 'undefined' ? Math.round(performance.now()) : 0,
         screen_resolution: window.screen ? `${window.screen.width}x${window.screen.height}` : 'unknown',
-        timezone_offset: new Date().getTimezoneOffset(),
+        timezone: typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'unknown',
         is_devtools_open: (window.outerWidth - window.innerWidth > 160) || (window.outerHeight - window.innerHeight > 160)
     };
 }
