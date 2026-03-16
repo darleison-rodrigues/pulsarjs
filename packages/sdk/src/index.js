@@ -72,7 +72,7 @@ const Pulsar = (function () {
             _rageClickHandler: null,
 
             // Bound helpers for modules
-            extractSFCCContext: () => extractSFCCContext(extractCampaigns),
+            extractSFCCContext: () => extractSFCCContext(extractCampaigns, config.pageTypes),
             captureEnvironment: captureEnvironment,
             device: null, // set once at init() — device cohort + hints (PUL-026)
             capture: null, // set after pipeline creation

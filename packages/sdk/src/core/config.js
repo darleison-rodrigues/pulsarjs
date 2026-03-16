@@ -21,6 +21,25 @@ export const DEFAULT_CONFIG = {
     rageClickThreshold: 3,
     rageClickWindow: 1000,
     scrollDepthMilestones: [25, 50, 75, 100],
+
+    // PUL-027: configurable commerce action & page type mappings
+    // Defaults match SFCC SCAPI patterns. Override for Shopify, custom platforms, etc.
+    commerceActions: [
+        { action: 'cart_add',    method: 'POST',   pattern: /\/baskets\/[^/]+\/items/i },
+        { action: 'cart_update', method: 'PATCH',  pattern: /\/baskets\//i },
+        { action: 'cart_remove', method: 'DELETE',  pattern: /\/baskets\/[^/]+\/items/i },
+        { action: 'checkout',    method: 'POST',   pattern: /\/orders/i },
+        { action: 'search',      method: 'GET',    pattern: /\/product-search/i }
+    ],
+    pageTypes: [
+        [/\/checkout/i, 'Checkout'],
+        [/\/cart/i, 'Cart'],
+        [/\/p\/([^/?]+)/i, 'PDP'],
+        [/\/d\//i, 'PLP'],
+        [/\/search/i, 'Search'],
+        [/^\/$/,  'Home']
+    ],
+
     debug: false
 };
 

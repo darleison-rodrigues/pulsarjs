@@ -2,6 +2,7 @@
  * PulsarJS — SFCC Integration
  * Context extraction: dwsid, dwac_*, page type inference, dw.ac, Evergage, BOOMR.
  */
+import { inferPageType } from '../collectors/navigation.js';
 
 /**
  * Get a cookie value by name.
@@ -16,7 +17,7 @@ export function getCookie(name) {
 /**
  * Extract SFCC-specific context from the current page.
  */
-export function extractSFCCContext(extractCampaigns) {
+export function extractSFCCContext(extractCampaigns, pageTypes) {
     const context = {
         dwsid: getCookie('dwsid') || null,
         visitorId: null,
@@ -42,14 +43,9 @@ export function extractSFCCContext(extractCampaigns) {
         }
     }
 
-    // Page type inference from URL path
-    const path = window.location.pathname.toLowerCase();
-    if (path.includes('/checkout')) context.pageType = 'Checkout';
-    else if (path.includes('/cart')) context.pageType = 'Cart';
-    else if (path.includes('/p/')) context.pageType = 'PDP';
-    else if (path.includes('/d/')) context.pageType = 'PLP';
-    else if (path.includes('/search')) context.pageType = 'Search';
-    else if (path === '/' || path === '') context.pageType = 'Home';
+    // PUL-027: use shared inferPageType from navigation.js
+    const pageInfo = inferPageType(window.location.pathname, pageTypes);
+    context.pageType = pageInfo.type !== 'Other' ? pageInfo.type : null;
 
     // dw.ac category context
     if (typeof window.dw !== 'undefined' && window.dw.ac && window.dw.ac._category) {
