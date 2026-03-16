@@ -7,32 +7,41 @@
  */
 import { Sanitizers } from '../utils/sanitizers.js';
 
-const PAGE_TYPES = [
-    [/\/checkout/i, 'Checkout'],
-    [/\/cart/i, 'Cart'],
-    [/\/p\//i, 'PDP'],
-    [/\/d\//i, 'PLP'],
-    [/\/search/i, 'Search'],
-    [/^\/$/,  'Home']
-];
-
-function inferPageType(path) {
-    const p = (path || '/').toLowerCase();
-    for (const [pattern, type] of PAGE_TYPES) {
-        if (pattern.test(p)) return type;
+/**
+ * Infer page type from URL path using config-driven patterns.
+ * PUL-027: reads from config.pageTypes instead of hardcoded patterns.
+ *
+ * Supports optional capture group in regex for product_ref extraction:
+ *   [/\/p\/([^/?]+)/i, 'PDP'] → { type: 'PDP', product_ref: 'blue-sneakers-123' }
+ *
+ * @param {string} path - URL pathname
+ * @param {Array<[RegExp, string]>} pageTypes - pattern/type tuples from config
+ * @returns {{ type: string, product_ref: string|null }}
+ */
+function inferPageType(path, pageTypes) {
+    const p = path || '/';
+    for (const [pattern, type] of pageTypes) {
+        const match = p.match(pattern);
+        if (match) {
+            return {
+                type,
+                product_ref: match[1] || null
+            };
+        }
     }
-    return 'Other';
+    return { type: 'Other', product_ref: null };
 }
 
 /**
  * Set up page view tracking, SPA navigation, campaign entry, and tab visibility.
  */
 export function setupNavigationTracking(state) {
+    const { config } = state;
     let currentPath = window.location.pathname;
-    let currentPageType = inferPageType(currentPath);
+    let currentPageInfo = inferPageType(currentPath, config.pageTypes);
 
     // Initial page view
-    emitPageView(state, currentPageType, classifyReferrer(), null);
+    emitPageView(state, currentPageInfo, classifyReferrer(), null);
 
     // Campaign entry — fire once per session if UTM/ad params present
     emitCampaignEntry(state);
@@ -45,11 +54,11 @@ export function setupNavigationTracking(state) {
         const newPath = window.location.pathname;
         if (newPath === currentPath) return;
 
-        const prevPageType = currentPageType;
+        const prevPageType = currentPageInfo.type;
         currentPath = newPath;
-        currentPageType = inferPageType(newPath);
+        currentPageInfo = inferPageType(newPath, config.pageTypes);
 
-        emitPageView(state, currentPageType, 'internal', prevPageType);
+        emitPageView(state, currentPageInfo, 'internal', prevPageType);
 
         // Reset scroll depth milestones for new page
         if (state._scrollMilestones) state._scrollMilestones.clear();
@@ -74,7 +83,7 @@ export function setupNavigationTracking(state) {
             message: `Tab ${document.visibilityState}`,
             metadata: {
                 visibility: document.visibilityState,
-                page_type: currentPageType
+                page_type: currentPageInfo.type
             },
             severity: 'info',
             is_blocking: false
@@ -89,16 +98,19 @@ export function setupNavigationTracking(state) {
     state._navVisibilityHandler = onVisibility;
 }
 
-function emitPageView(state, pageType, referrerType, fromPageType) {
+function emitPageView(state, pageInfo, referrerType, fromPageType) {
+    const metadata = {
+        page_type: pageInfo.type,
+        referrer_type: referrerType,
+        from_page_type: fromPageType,
+        path: Sanitizers.sanitizeUrl(window.location.pathname)
+    };
+    if (pageInfo.product_ref) metadata.product_ref = pageInfo.product_ref;
+
     state.capture({
         event_type: 'PAGE_VIEW',
-        message: `Page: ${pageType}`,
-        metadata: {
-            page_type: pageType,
-            referrer_type: referrerType,
-            from_page_type: fromPageType,
-            path: Sanitizers.sanitizeUrl(window.location.pathname)
-        },
+        message: `Page: ${pageInfo.type}`,
+        metadata,
         severity: 'info',
         is_blocking: false
     });

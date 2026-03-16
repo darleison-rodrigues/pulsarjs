@@ -6,21 +6,17 @@
 import { Sanitizers } from '../utils/sanitizers.js';
 
 /**
- * SFCC SCAPI commerce action patterns.
- * Successful calls to these endpoints emit COMMERCE_ACTION events
- * so the server can build funnel edges in the knowledge graph.
+ * Detect commerce action from request method + URL using config-driven patterns.
+ * PUL-027: reads from config.commerceActions instead of hardcoded SFCC patterns.
+ *
+ * @param {string} method - HTTP method
+ * @param {string} url - Request URL
+ * @param {Array<{action: string, method: string, pattern: RegExp}>} commerceActions
+ * @returns {string|null} action name or null
  */
-const COMMERCE_ACTIONS = [
-    { action: 'cart_add',    method: 'POST',   pattern: /\/baskets\/[^/]+\/items/i },
-    { action: 'cart_update', method: 'PATCH',  pattern: /\/baskets\//i },
-    { action: 'cart_remove', method: 'DELETE',  pattern: /\/baskets\/[^/]+\/items/i },
-    { action: 'checkout',    method: 'POST',   pattern: /\/orders/i },
-    { action: 'search',      method: 'GET',    pattern: /\/product-search/i }
-];
-
-function detectCommerceAction(method, url) {
+function detectCommerceAction(method, url, commerceActions) {
     const m = (method || 'GET').toUpperCase();
-    for (const ca of COMMERCE_ACTIONS) {
+    for (const ca of commerceActions) {
         if (ca.method === m && ca.pattern.test(url)) return ca.action;
     }
     return null;
@@ -72,7 +68,7 @@ export function setupFetchInterceptor(state) {
                 });
             } else {
                 // Commerce action detection — successful SCAPI calls become ECKG nodes
-                const commerceAction = detectCommerceAction(method, requestUrl);
+                const commerceAction = detectCommerceAction(method, requestUrl, config.commerceActions);
                 if (commerceAction) {
                     capture({
                         event_type: "COMMERCE_ACTION",
@@ -172,7 +168,7 @@ export function setupXHRInterceptor(state) {
                             });
                         } else {
                             // Commerce action detection for XHR
-                            const commerceAction = detectCommerceAction(this._method, this._url);
+                            const commerceAction = detectCommerceAction(this._method, this._url, config.commerceActions);
                             if (commerceAction) {
                                 capture({
                                     event_type: "COMMERCE_ACTION",
