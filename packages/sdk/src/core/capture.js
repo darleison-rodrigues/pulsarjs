@@ -109,7 +109,7 @@ export function createCapturePipeline(sharedState) {
             metrics: errorData.metrics || null,
             metadata: { ...errorData.metadata, ...state.extractSFCCContext() },
             environment: state.captureEnvironment(),
-            device_type: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+            device: state.device,
             status_code: errorData.status_code || null,
             scope: localScope.getScopeData(),
             dropped_events: state.droppedEventsCount
