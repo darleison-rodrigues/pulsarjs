@@ -18,6 +18,7 @@ import { setupNavigationTracking } from './collectors/navigation.js';
 import { setupScrollObserver, setupRageClickDetector } from './collectors/interactions.js';
 import { extractSFCCContext } from './integrations/sfcc.js';
 import { captureEnvironment, extractCampaigns } from './utils/environment.js';
+import { buildDeviceInfo } from './utils/device.js';
 
 const Pulsar = (function () {
 
@@ -73,6 +74,7 @@ const Pulsar = (function () {
             // Bound helpers for modules
             extractSFCCContext: () => extractSFCCContext(extractCampaigns),
             captureEnvironment: captureEnvironment,
+            device: null, // set once at init() — device cohort + hints (PUL-026)
             capture: null, // set after pipeline creation
             flush: null, // set after pipeline creation
             flushOnHide: null  // set after pipeline creation — bypasses isFlushing for page-hide
@@ -107,6 +109,9 @@ const Pulsar = (function () {
                     if (!enabled) return;
 
                     globalScope.setMaxBreadcrumbs(config.maxBreadcrumbs);
+
+                    // PUL-026: compute device cohort once at init, reuse per event
+                    state.device = buildDeviceInfo();
 
                     // Error & performance collectors
                     setupPerformanceObserver(state);
