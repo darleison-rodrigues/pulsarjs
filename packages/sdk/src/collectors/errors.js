@@ -25,29 +25,31 @@ export function setupErrorHandlers(state) {
     // addEventListener('error') stacks with any other listener on the page.
     // The old window.onerror = assignment was a single slot — anything running
     // after Pulsar (GTM tags, third-party widgets) would overwrite it silently.
-    state.errorHandler = function (event) {
+    state.errorHandler = async function (event) {
         // Skip resource-load errors (img, script, link) — they have no stack
         // and fire on the same 'error' event type but with no event.message.
         if (!event.message) return;
-        capture({
+        const eventId = await capture({
             event_type: 'JS_CRASH',
             message: event.message,
             response_snippet: event.error ? event.error.stack : `${event.filename}:${event.lineno}:${event.colno}`,
             severity: 'error',
             is_blocking: true
         });
+        if (eventId) state.lastErrorEventId = eventId;
     };
     window.addEventListener('error', state.errorHandler);
 
     // ── JS_CRASH: unhandled promise rejections ──────────────────────────────
-    state.rejectionHandler = function (event) {
-        capture({
+    state.rejectionHandler = async function (event) {
+        const eventId = await capture({
             event_type: 'JS_CRASH',
             message: event.reason ? event.reason.toString() : 'Unhandled Promise Rejection',
             response_snippet: event.reason && event.reason.stack ? event.reason.stack : null,
             severity: 'error',
             is_blocking: false
         });
+        if (eventId) state.lastErrorEventId = eventId;
     };
     window.addEventListener('unhandledrejection', state.rejectionHandler);
 
@@ -58,26 +60,27 @@ export function setupErrorHandlers(state) {
         let mutationBuffer = [];
         let mutationTimeout = null;
 
-        const processMutations = () => {
+        const processMutations = async () => {
             const nodesToProcess = mutationBuffer;
             mutationBuffer = [];
             mutationTimeout = null;
 
-            nodesToProcess.forEach(node => {
+            for (const node of nodesToProcess) {
                 for (const selector of config.criticalSelectors) {
                     if (
                         (node.matches && node.matches(selector)) ||
                         (node.querySelector && node.querySelector(selector))
                     ) {
-                        capture({
+                        const eventId = await capture({
                             event_type: 'UI_FAILURE',
                             message: `Critical error UI rendered: ${selector}`,
                             severity: 'warning',
                             is_blocking: false
                         });
+                        if (eventId) state.lastErrorEventId = eventId;
                     }
                 }
-            });
+            }
         };
 
         state.mutationObserver = new MutationObserver((mutations) => {

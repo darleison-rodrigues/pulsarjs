@@ -46,6 +46,13 @@ const Pulsar = (function () {
             firstDropSessionId: null,  // session captured at drop time
             queue: [],
 
+            // PUL-028: causal tracking for edge hints
+            lastErrorEventId: null,         // set by errors.js after JS_CRASH / UI_FAILURE
+            lastCommerceEventId: null,      // set by network.js after COMMERCE_ACTION
+            lastCommerceAction: null,       // { action: string, event_id: string }
+            lastFailedCommerceAction: {},   // { [action_type]: { event_id: string } }
+            firstPageViewEventId: null,     // set by navigation.js after first PAGE_VIEW
+
             // Handler references for teardown (PUL-033: addEventListener pattern)
             originalFetch: null,
             originalXhrOpen: null,

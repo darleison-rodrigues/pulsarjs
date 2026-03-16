@@ -58,19 +58,30 @@ export function setupFetchInterceptor(state) {
             const duration = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime;
 
             if (!response.ok) {
-                capture({
+                // PUL-028: blocked_by edge — commerce failed after prior commerce event
+                const failedAction = detectCommerceAction(method, requestUrl, config.commerceActions);
+                const failedEventId = await capture({
                     event_type: "API_FAILURE",
                     message: `API HTTP ${response.status}: ${Sanitizers.sanitizeApiEndpoint(response.url)}`,
                     response_snippet: bodySnippet,
                     metadata: { status: response.status, endpoint: Sanitizers.sanitizeApiEndpoint(response.url), method, duration_ms: Math.round(duration) },
                     severity: response.status >= 500 ? "error" : "warning",
-                    is_blocking: false
+                    is_blocking: false,
+                    ...(failedAction && state.lastCommerceEventId
+                        ? { caused_by: state.lastCommerceEventId, edge_hint: 'blocked_by' }
+                        : {})
                 });
+                // Track failed commerce action for retried_after edge
+                if (failedAction && failedEventId) {
+                    state.lastFailedCommerceAction[failedAction] = { event_id: failedEventId };
+                }
             } else {
-                // Commerce action detection — successful SCAPI calls become ECKG nodes
+                // PUL-028: commerce/latency blocks are sequential — commerce awaited for event_id
+                let commerceEventId = null;
                 const commerceAction = detectCommerceAction(method, requestUrl, config.commerceActions);
                 if (commerceAction) {
-                    capture({
+                    const failed = state.lastFailedCommerceAction[commerceAction];
+                    commerceEventId = await capture({
                         event_type: "COMMERCE_ACTION",
                         message: `Commerce: ${commerceAction}`,
                         metadata: {
@@ -80,17 +91,25 @@ export function setupFetchInterceptor(state) {
                             duration_ms: Math.round(duration)
                         },
                         severity: "info",
-                        is_blocking: false
+                        is_blocking: false,
+                        ...(failed ? { caused_by: failed.event_id, edge_hint: 'retried_after' } : {})
                     });
+                    if (commerceEventId) {
+                        state.lastCommerceEventId = commerceEventId;
+                        state.lastCommerceAction = { action: commerceAction, event_id: commerceEventId };
+                    }
+                    if (failed) delete state.lastFailedCommerceAction[commerceAction];
                 }
 
+                // PUL-028: degraded_by edge — latency caused by prior commerce action in same request
                 if (duration > config.slowApiThreshold) {
                     capture({
                         event_type: "API_LATENCY",
                         message: `Slow API: ${Sanitizers.sanitizeApiEndpoint(response.url)}`,
                         metadata: { endpoint: Sanitizers.sanitizeApiEndpoint(response.url), method, duration_ms: Math.round(duration) },
                         severity: "info",
-                        is_blocking: false
+                        is_blocking: false,
+                        ...(commerceEventId ? { caused_by: commerceEventId, edge_hint: 'degraded_by' } : {})
                     });
                 }
             }
@@ -141,7 +160,7 @@ export function setupXHRInterceptor(state) {
             const isInternalRoute = requestUrl.includes(config.endpoint);
 
             if (isSFCCRoute && !isInternalRoute) {
-                this.addEventListener('loadend', () => {
+                this.addEventListener('loadend', async () => {
                     try {
                         const duration = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime;
 
@@ -154,23 +173,34 @@ export function setupXHRInterceptor(state) {
                                 is_blocking: false
                             });
                         } else if (this.status >= 400) {
+                            // PUL-028: blocked_by edge — commerce failed after prior commerce event
                             let bodySnippet = null;
                             if (body && typeof body === 'string') {
                                 bodySnippet = Sanitizers.redactPII(body).substring(0, 500);
                             }
-                            capture({
+                            const failedAction = detectCommerceAction(this._method, this._url, config.commerceActions);
+                            const failedEventId = await capture({
                                 event_type: "API_FAILURE",
                                 message: `XHR HTTP ${this.status}: ${Sanitizers.sanitizeApiEndpoint(this._url)}`,
                                 response_snippet: bodySnippet,
                                 metadata: { status: this.status, endpoint: Sanitizers.sanitizeApiEndpoint(this._url), method: this._method, duration_ms: Math.round(duration) },
                                 severity: this.status >= 500 ? "error" : "warning",
-                                is_blocking: false
+                                is_blocking: false,
+                                ...(failedAction && state.lastCommerceEventId
+                                    ? { caused_by: state.lastCommerceEventId, edge_hint: 'blocked_by' }
+                                    : {})
                             });
+                            // Track failed commerce action for retried_after edge
+                            if (failedAction && failedEventId) {
+                                state.lastFailedCommerceAction[failedAction] = { event_id: failedEventId };
+                            }
                         } else {
-                            // Commerce action detection for XHR
+                            // PUL-028: commerce/latency blocks are sequential — commerce awaited for event_id
+                            let commerceEventId = null;
                             const commerceAction = detectCommerceAction(this._method, this._url, config.commerceActions);
                             if (commerceAction) {
-                                capture({
+                                const failed = state.lastFailedCommerceAction[commerceAction];
+                                commerceEventId = await capture({
                                     event_type: "COMMERCE_ACTION",
                                     message: `Commerce: ${commerceAction}`,
                                     metadata: {
@@ -180,17 +210,25 @@ export function setupXHRInterceptor(state) {
                                         duration_ms: Math.round(duration)
                                     },
                                     severity: "info",
-                                    is_blocking: false
+                                    is_blocking: false,
+                                    ...(failed ? { caused_by: failed.event_id, edge_hint: 'retried_after' } : {})
                                 });
+                                if (commerceEventId) {
+                                    state.lastCommerceEventId = commerceEventId;
+                                    state.lastCommerceAction = { action: commerceAction, event_id: commerceEventId };
+                                }
+                                if (failed) delete state.lastFailedCommerceAction[commerceAction];
                             }
 
+                            // PUL-028: degraded_by edge — latency caused by prior commerce action in same request
                             if (duration > config.slowApiThreshold) {
                                 capture({
                                     event_type: "API_LATENCY",
                                     message: `Slow XHR: ${Sanitizers.sanitizeApiEndpoint(this._url)}`,
                                     metadata: { endpoint: Sanitizers.sanitizeApiEndpoint(this._url), method: this._method, duration_ms: Math.round(duration) },
                                     severity: "info",
-                                    is_blocking: false
+                                    is_blocking: false,
+                                    ...(commerceEventId ? { caused_by: commerceEventId, edge_hint: 'degraded_by' } : {})
                                 });
                             }
                         }

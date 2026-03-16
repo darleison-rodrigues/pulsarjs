@@ -93,7 +93,10 @@ export function setupRageClickDetector(state) {
                     window_ms: windowMs
                 },
                 severity: 'warning',
-                is_blocking: false
+                is_blocking: false,
+                ...(state.lastErrorEventId
+                    ? { caused_by: state.lastErrorEventId, edge_hint: 'frustrated_by' }
+                    : {})
             });
             clicks = [];
         }
