@@ -53,6 +53,13 @@ const Pulsar = (function () {
             lastFailedCommerceAction: {},   // { [action_type]: { event_id: string } }
             firstPageViewEventId: null,     // set by navigation.js after first PAGE_VIEW
 
+            // PUL-029: session context for flush envelope
+            sessionStartedAt: null,         // ISO timestamp, set at init
+            entryPageType: null,            // page type of first PAGE_VIEW
+            entryReferrerType: null,        // referrer type of first PAGE_VIEW
+            entryCampaignSource: null,      // utm_source or null, set by navigation.js
+            pageCount: 0,                   // incremented by navigation.js on each PAGE_VIEW
+
             // Handler references for teardown (PUL-033: addEventListener pattern)
             originalFetch: null,
             originalXhrOpen: null,
@@ -109,6 +116,7 @@ const Pulsar = (function () {
                     }
 
                     if (!sessionID) sessionID = generateSessionID();
+                    if (!state.sessionStartedAt) state.sessionStartedAt = new Date().toISOString();
 
                     isSampled = Math.random() <= config.sampleRate;
                     enabled = !!config.enabled && isSampled;
