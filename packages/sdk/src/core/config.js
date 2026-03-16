@@ -62,5 +62,8 @@ export function validateConfig(config) {
     if (endpointFilter && !(endpointFilter instanceof RegExp)) {
         errors.push('endpointFilter must be a RegExp.');
     }
+    if (config.nonce !== null && typeof config.nonce !== 'string') {
+        errors.push('nonce must be a string.');
+    }
     return errors;
 }
