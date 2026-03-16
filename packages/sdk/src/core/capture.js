@@ -43,6 +43,94 @@ export function hash(str) {
  * @param {object} sharedState
  * @returns {{ capture: Function, flush: Function, flushOnHide: Function }}
  */
+const SEVERITY_RANK = { info: 0, warning: 1, error: 2 };
+const ERROR_TYPES = new Set(['JS_CRASH', 'API_FAILURE', 'NETWORK_ERROR', 'UI_FAILURE']);
+
+/**
+ * PUL-029: Build session context and manifest from a batch of events.
+ * Single pass over events — satisfies the "no double iteration" acceptance criterion.
+ *
+ * @param {Array} events - Snapshot of events to flush
+ * @param {object} state - Shared SDK state
+ * @returns {{ session: object, manifest: object }}
+ */
+function buildEnvelopeContext(events, state) {
+    let minSeq = Infinity;
+    let maxSeq = -Infinity;
+    let maxSeverity = 'info';
+    let hasErrors = false;
+    let hasCommerce = false;
+    let hasFrustration = false;
+    let hasAbandonment = false;
+    let hasDegradation = false;
+    let hasProduct = false;
+    const commerceActions = new Set();
+    const productRefs = new Set();
+    const pageTypesVisited = new Set();
+
+    for (const event of events) {
+        // seq_range — extract seq number from event_id (format: sessionID:seq)
+        if (event.event_id) {
+            const seq = parseInt(event.event_id.split(':').pop(), 10);
+            if (seq < minSeq) minSeq = seq;
+            if (seq > maxSeq) maxSeq = seq;
+        }
+
+        // max_severity
+        if ((SEVERITY_RANK[event.severity] || 0) > SEVERITY_RANK[maxSeverity]) {
+            maxSeverity = event.severity;
+        }
+
+        // type-specific predicates
+        if (ERROR_TYPES.has(event.event_type)) {
+            hasErrors = true;
+        } else if (event.event_type === 'COMMERCE_ACTION') {
+            hasCommerce = true;
+            if (event.metadata?.action) commerceActions.add(event.metadata.action);
+        } else if (event.event_type === 'RAGE_CLICK') {
+            hasFrustration = true;
+        } else if (event.event_type === 'PAGE_VIEW') {
+            if (event.metadata?.page_type) pageTypesVisited.add(event.metadata.page_type);
+            if (event.metadata?.product_ref) {
+                hasProduct = true;
+                productRefs.add(event.metadata.product_ref);
+            }
+        }
+
+        // edge-hint-based predicates
+        if (event.edge_hint === 'abandoned_at') hasAbandonment = true;
+        if (event.edge_hint === 'degraded_by') hasDegradation = true;
+    }
+
+    const session = {
+        session_id: state.sessionID,
+        device_cohort: state.device?.device_cohort || null,
+        seq_range: minSeq <= maxSeq ? [minSeq, maxSeq] : null,
+        started_at: state.sessionStartedAt,
+        page_count: state.pageCount,
+        entry: {
+            page_type: state.entryPageType,
+            referrer_type: state.entryReferrerType,
+            campaign_source: state.entryCampaignSource
+        }
+    };
+
+    const manifest = {
+        has_errors: hasErrors,
+        has_commerce: hasCommerce,
+        has_frustration: hasFrustration,
+        has_abandonment: hasAbandonment,
+        has_degradation: hasDegradation,
+        has_product: hasProduct,
+        commerce_actions: [...commerceActions],
+        product_refs: [...productRefs],
+        max_severity: maxSeverity,
+        page_types_visited: [...pageTypesVisited]
+    };
+
+    return { session, manifest };
+}
+
 export function createCapturePipeline(sharedState) {
     // PUL-032: closure-scoped const — immutable per instance, no module singleton.
     const state = sharedState;
@@ -239,11 +327,14 @@ export function createCapturePipeline(sharedState) {
         state.firstDropUrl = null;
         state.firstDropSessionId = null;
 
+        const { session, manifest } = buildEnvelopeContext(snapshot, state);
         const batch = {
             pulsar_version: '1.0.0',
             client_id: state.config.clientId,
             site_id: state.config.siteId,
-            timestamp: new Date().toISOString(),
+            flushed_at: new Date().toISOString(),
+            session,
+            manifest,
             events: snapshot,
             dropped_events: state.droppedEventsCount,
             _unload: true  // signals ingest: page-hide beacon
@@ -288,15 +379,20 @@ export function createCapturePipeline(sharedState) {
         // Snapshot + clear BEFORE any await. Captures that fire during the async
         // operations below push into a fresh state.queue and are preserved
         // regardless of this flush's outcome.
+        const snapshot = [...state.queue];
+        state.queue = [];
+
+        const { session, manifest } = buildEnvelopeContext(snapshot, state);
         const batch = {
             pulsar_version: '1.0.0',
             client_id: state.config.clientId,
             site_id: state.config.siteId,
-            timestamp: new Date().toISOString(),
-            events: [...state.queue],
+            flushed_at: new Date().toISOString(),
+            session,
+            manifest,
+            events: snapshot,
             dropped_events: state.droppedEventsCount
         };
-        state.queue = [];
         // ─────────────────────────────────────────────────────────────────────
 
         const endpoint = state.config.endpoint;
