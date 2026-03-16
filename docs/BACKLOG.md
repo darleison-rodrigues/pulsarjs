@@ -31,56 +31,8 @@
 
 ---
 
----
-
-### [PUL-026] Event Schema Refactor: Device Cohort + Structured Payload
-**Status**: 🔴 Open
-**Branch**: `feature/pul-026-device-cohort-schema`
-**Severity**: High — aligns SDK payload with documented API contract.
-
-**The Goal**: Restructure event payload to match the schema documented in `API.md` (Event Schema section). Three changes:
-
-**1. `device` object** — Move `device_type` from top-level into a `device` block. Add `device_cohort` (hash of cross-browser signals) and optional `hints` (Chromium-only enrichment).
-
-```js
-device: {
-    device_type: "mobile" | "desktop",
-    device_cohort: hash(screen|cores|timezone|gpu),  // computed once at init
-    hints: {                                          // null on Safari/Firefox
-        device_memory: navigator.deviceMemory,
-        ua_platform: navigator.userAgentData?.platform,
-        ua_mobile: navigator.userAgentData?.mobile
-    }
-}
-```
-
-Cohort hash inputs (cross-browser only):
-- `screen.width + 'x' + screen.height`
-- `navigator.hardwareConcurrency`
-- `Intl.DateTimeFormat().resolvedOptions().timeZone`
-- WebGL renderer via `gl.getExtension('WEBGL_debug_renderer_info')` → `gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)`, fallback `'none'`
-
-`hints` object is **never included in the hash**. It is nullable metadata for Chromium sessions. Downstream must not join/group on hints fields.
-
-**2. `environment` object** — Apply PUL-025 temporal normalization. Replace `timezone_offset` with IANA `timezone`.
-
-**3. Breadcrumb timestamps** — Normalize `Date.now()` → ISO 8601 at serialization in `scope.getScopeData()`.
-
-**Depends on**: PUL-025 (temporal normalization).
-
-**Acceptance Criteria**:
-- `device_cohort` is deterministic: same device + browser = same hash across sessions.
-- `device_cohort` is cross-browser stable: same device on Chrome vs Safari = same hash.
-- `hints` is `null` (not `{}`) when no Chromium signals are available.
-- `device_cohort` computed once at `init()`, not per event.
-- Transmitted payload matches the full event example in `API.md`.
-- WebGL canvas is cleaned up after cohort computation (no leaked DOM elements).
-
----
-
 ### [PUL-027] Platform-Agnostic Commerce Action Detection
 **Status**: 🔴 Open
-**Branch**: `feature/pul-027-agnostic-commerce`
 **Severity**: High — required for non-SFCC adoption.
 
 **The Goal**: Replace hardcoded SFCC SCAPI patterns in `network.js` and `config.js` with configurable mappings. SFCC patterns remain the default.
