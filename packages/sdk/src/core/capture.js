@@ -144,7 +144,7 @@ export function createCapturePipeline(sharedState) {
                         payload.metadata.consent_unconfirmed = true;
                     } else {
                         if (state.config.debug) console.log('[Pulsar] Event dropped due to strict consent fallback');
-                        return;
+                        return null;
                     }
                 } else {
                     if (state.config.debug) console.warn('[Pulsar] beforeSend hook threw an error', e);

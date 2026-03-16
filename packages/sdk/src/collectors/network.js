@@ -94,8 +94,10 @@ export function setupFetchInterceptor(state) {
                         is_blocking: false,
                         ...(failed ? { caused_by: failed.event_id, edge_hint: 'retried_after' } : {})
                     });
-                    state.lastCommerceEventId = commerceEventId;
-                    state.lastCommerceAction = { action: commerceAction, event_id: commerceEventId };
+                    if (commerceEventId) {
+                        state.lastCommerceEventId = commerceEventId;
+                        state.lastCommerceAction = { action: commerceAction, event_id: commerceEventId };
+                    }
                     if (failed) delete state.lastFailedCommerceAction[commerceAction];
                 }
 
@@ -211,8 +213,10 @@ export function setupXHRInterceptor(state) {
                                     is_blocking: false,
                                     ...(failed ? { caused_by: failed.event_id, edge_hint: 'retried_after' } : {})
                                 });
-                                state.lastCommerceEventId = commerceEventId;
-                                state.lastCommerceAction = { action: commerceAction, event_id: commerceEventId };
+                                if (commerceEventId) {
+                                    state.lastCommerceEventId = commerceEventId;
+                                    state.lastCommerceAction = { action: commerceAction, event_id: commerceEventId };
+                                }
                                 if (failed) delete state.lastFailedCommerceAction[commerceAction];
                             }
 
