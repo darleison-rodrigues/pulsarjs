@@ -23,10 +23,9 @@ test.describe('PulsarJS E2E Payload Verification', () => {
         // Wait for the request to be captured
         const request = await requestPromise;
 
-        // Verify headers
-        expect(request.headers()['x-pulsar-client-id']).toBe('test-client-id');
-
         // Parse the payload body
+        // Note: sendBeacon is the primary transport and does not support custom
+        // headers — client_id is verified inside the JSON body instead.
         const postData = request.postDataJSON();
 
         // Assert exactly what the payload should contain based on domain rules
