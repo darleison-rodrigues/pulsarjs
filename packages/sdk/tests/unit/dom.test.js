@@ -68,4 +68,37 @@ describe('injectScript Utility', () => {
 
         expect(script.getAttribute('async')).toBe('false');
     });
+
+    it('rejects script injection with javascript: protocol', () => {
+        const state = { config: {} };
+        const src = 'javascript:alert(1)';
+        expect(() => injectScript(state, src)).toThrow('Insecure script source protocol: javascript:');
+    });
+
+    it('rejects script injection with data: protocol', () => {
+        const state = { config: {} };
+        const src = 'data:text/javascript,alert(1)';
+        expect(() => injectScript(state, src)).toThrow('Insecure script source protocol: data:');
+    });
+
+    it('rejects script injection with http: protocol', () => {
+        const state = { config: {} };
+        const src = 'http://example.com/script.js';
+        expect(() => injectScript(state, src)).toThrow('Insecure script source protocol: http:');
+    });
+
+    it('rejects invalid urls', () => {
+        const state = { config: {} };
+        const src = 'http://[]/';
+        expect(() => injectScript(state, src)).toThrow('Invalid script source: http://[]/');
+    });
+
+    it('allows script injection with relative paths', () => {
+        const state = { config: {} };
+        const src = '/path/to/script.js';
+        const script = injectScript(state, src);
+
+        expect(script.tagName).toBe('SCRIPT');
+        expect(script.src).toBe(src);
+    });
 });
