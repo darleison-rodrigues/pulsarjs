@@ -55,16 +55,15 @@ export const Sanitizers = {
     sanitizeStack(stack) {
         if (!stack) return null;
         const v = String(stack);
-        const lines = v.split('\n').slice(0, 15);
+        let cleaned = v.split('\n').slice(0, 15).join('\n');
 
-        return lines.map(line => {
-            let cleaned = line.replace(/@https?:\/\/[^\/]+\//g, '@');
-            cleaned = cleaned.replace(/@file:\/\/.*\//g, '@');
-            cleaned = cleaned.replace(/[A-Z]:\\[\w\\.]+\\/g, '');
-            cleaned = cleaned.replace(/\/Users\/[\w\/]+\//g, '');
-            cleaned = cleaned.replace(/\/home\/[\w\/]+\//g, '');
-            return cleaned;
-        }).join('\n');
+        cleaned = cleaned.replace(/@https?:\/\/[^\/]+\//g, '@');
+        cleaned = cleaned.replace(/@file:\/\/.*\//g, '@');
+        cleaned = cleaned.replace(/[A-Z]:\\[\w\\.]+\\/g, '');
+        cleaned = cleaned.replace(/\/Users\/[\w\/]+\//g, '');
+        cleaned = cleaned.replace(/\/home\/[\w\/]+\//g, '');
+
+        return cleaned;
     },
 
     /**
