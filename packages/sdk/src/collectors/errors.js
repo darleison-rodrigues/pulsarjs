@@ -111,7 +111,7 @@ export function setupErrorHandlers(state) {
         globalScope.addBreadcrumb({
             category: 'ui.click',
             message: `${tag}${id}${cls}`,
-            time_since_load_ms: typeof performance !== 'undefined' ? Math.round(performance.now()) : 0
+            time_since_load_ms: typeof performance !== 'undefined' && typeof performance.now === 'function' ? Math.round(performance.now()) : 0
         });
     };
     document.body.addEventListener('click', state.interactionHandler, true);
