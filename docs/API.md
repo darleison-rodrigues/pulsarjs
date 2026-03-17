@@ -1,6 +1,6 @@
 # PulsarJS API Reference
 
-Privacy-first commerce instrumentation SDK — platform-agnostic, knowledge-graph-driven.
+Privacy-first commerce instrumentation SDK — platform-agnostic, causality-aware.
 
 **Base URL**: `https://api.pulsarjs.com`
 
@@ -136,7 +136,7 @@ Health check.
 
 ### `POST /v1/ingest`
 
-Primary telemetry sink. Receives ordered behavioral events for ECKG construction. Returns `202 Accepted`.
+Primary telemetry sink. Receives ordered behavioral events for causal chain construction. Returns `202 Accepted`.
 
 **Headers**: `X-Pulsar-Client-Id`, `Content-Type: application/json`
 **Fallback**: `text/plain` via `navigator.sendBeacon` (no custom headers — `client_id` is in the body)
@@ -166,7 +166,7 @@ Primary telemetry sink. Receives ordered behavioral events for ECKG construction
 
 ## Event Schema
 
-Every event is a **node** in the Event-Centric Knowledge Graph. The server infers edges from `session_id` + `event_id` ordering.
+Every event is a **node** in the causal event stream. The server infers edges from `session_id` + `event_id` ordering.
 
 ### Temporal Contract
 
@@ -522,7 +522,7 @@ These are NOT in the manifest. The server adds them to the session record after 
 
 ---
 
-## ECKG Edge Inference (Server-Side)
+## Causal Edge Inference (Server-Side)
 
 The SDK emits **nodes**. The server computes **edges** from session ordering and event type pairs.
 

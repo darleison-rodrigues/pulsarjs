@@ -9,9 +9,9 @@
 
 # PulsarJS
 
-**Commerce instrumentation SDK. Turn shopper behavior into a knowledge graph. Zero PII. 22KB. One script tag.**
+**Commerce instrumentation SDK. Turn shopper behavior into causal event chains. Zero PII. 22KB. One script tag.**
 
-PulsarJS is a electronic commerce instrumentation SDK that captures the full shopper journey — from campaign click to checkout — and feeds an **Event-Centric Knowledge Graph** that turns behavioral telemetry into revenue insights.
+PulsarJS is an electronic commerce instrumentation SDK that captures the full shopper journey — from campaign click to checkout — and builds **causal event chains** that connect behavioral telemetry to revenue impact.
 
 Traditional tools tell you "500 errors went up." Pulsar tells you _"Google Ads traffic is hitting a payment API failure on checkout, causing 40% cart abandonment — costing $12K/day."_
 
@@ -29,12 +29,12 @@ That's it. No npm install, no build step, no consent banner required.
 ## How It Works
 
 ```
-Storefront → pulsar.js (22KB) → api.pulsarjs.com → Knowledge Graph → Alerts + Dashboard
+Storefront → pulsar.js (22KB) → api.pulsarjs.com → Causal Event Stream → Alerts + Dashboard
 ```
 
-The SDK captures **15 event types** as graph nodes. The server infers **5 edge types** (caused, preceded, blocked_by, frustrated_by, abandoned_at) from session ordering. The result is a causal chain per session, not just isolated metrics.
+The SDK captures **15 event types**. The server infers **5 causal relationships** (caused, preceded, blocked_by, frustrated_by, abandoned_at) from session ordering. The result is a causal chain per session, not just isolated metrics.
 
-| What happened | What Pulsar captures | ECKG edge |
+| What happened | What Pulsar captures | Causal edge |
 |---|---|---|
 | Shopper clicks Google Ad → lands on Home | `CAMPAIGN_ENTRY` → `PAGE_VIEW` | **caused** |
 | Shopper adds to cart → checkout API fails | `COMMERCE_ACTION` → `API_FAILURE` | **blocked_by** |
@@ -70,7 +70,7 @@ Captures **16 attribution parameters** from landing URLs — the full paid acqui
 | Affiliate networks | `irclickid`, `aff_id`, `clickid` |
 | Manual | `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content` |
 
-The server resolves raw params into a **channel taxonomy** (channel → platform → product → intent) for ECKG enrichment.
+The server resolves raw params into a **channel taxonomy** (channel → platform → product → intent) for causal event stream enrichment.
 
 ---
 
