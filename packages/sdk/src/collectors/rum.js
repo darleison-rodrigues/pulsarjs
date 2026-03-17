@@ -112,6 +112,7 @@ export function setupPerformanceObserver(state) {
         });
 
     } catch (e) {
+        // eslint-disable-next-line no-console
         if (state.config.debug) console.warn('[Pulsar] PerformanceObserver setup failed', e);
     }
 
@@ -172,6 +173,7 @@ function _installSpaNavigationHook(state) {
         resetWebVitals();
         currentHref = window.location.href; // update after navigation
         if (state.config.debug) {
+            // eslint-disable-next-line no-console
             console.log('[Pulsar] SPA navigation — web vitals flushed and reset.');
         }
     }
@@ -236,7 +238,7 @@ export function captureRUM(state, url = window.location.href) {
         timestamp: new Date().toISOString(),
         event_type: 'RUM_METRICS',
         metrics: { ...webVitals },       // snapshot — not live reference
-        metadata: state.extractSFCCContext(),
+        metadata: state.extractPlatformContext(),
         environment: state.captureEnvironment()
     };
 

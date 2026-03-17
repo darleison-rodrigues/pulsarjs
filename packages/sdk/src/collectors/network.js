@@ -1,13 +1,13 @@
 /**
  * PulsarJS — Network Interceptors
  * Monkey-patches fetch and XHR to capture API failures, latency, network errors,
- * and commerce actions (ECKG nodes: cart_add, checkout, search).
+ * and commerce actions (cart_add, checkout, search).
  */
 import { Sanitizers } from '../utils/sanitizers.js';
 
 /**
  * Detect commerce action from request method + URL using config-driven patterns.
- * PUL-027: reads from config.commerceActions instead of hardcoded SFCC patterns.
+ * PUL-027: reads from config.commerceActions instead of hardcoded patterns.
  *
  * @param {string} method - HTTP method
  * @param {string} url - Request URL
@@ -23,7 +23,7 @@ function detectCommerceAction(method, url, commerceActions) {
 }
 
 /**
- * Patch window.fetch to intercept SFCC API calls.
+ * Patch window.fetch to intercept commerce API calls.
  */
 export function setupFetchInterceptor(state) {
     if (!window.fetch) return;
@@ -41,10 +41,10 @@ export function setupFetchInterceptor(state) {
 
         if (!requestUrl) return proceed();
 
-        const isSFCCRoute = config.endpointFilter ? config.endpointFilter.test(requestUrl) : true;
+        const isMonitoredRoute = config.endpointFilter ? config.endpointFilter.test(requestUrl) : true;
         const isInternalRoute = requestUrl.includes(config.endpoint);
 
-        if (!isSFCCRoute || isInternalRoute) return proceed();
+        if (!isMonitoredRoute || isInternalRoute) return proceed();
 
         try {
             const method = (args[1]?.method || 'GET').toUpperCase();
@@ -132,7 +132,7 @@ export function setupFetchInterceptor(state) {
 }
 
 /**
- * Patch XMLHttpRequest to intercept legacy SFCC/third-party AJAX calls.
+ * Patch XMLHttpRequest to intercept legacy AJAX calls.
  */
 export function setupXHRInterceptor(state) {
     if (!window.XMLHttpRequest) return;
@@ -146,6 +146,7 @@ export function setupXHRInterceptor(state) {
             this._method = method;
             this._url = url;
         } catch (e) {
+            // eslint-disable-next-line no-console
             if (config.debug) console.warn('[Pulsar] XHR open intercept failed', e);
         }
         return state.originalXhrOpen.apply(this, arguments);
@@ -156,10 +157,10 @@ export function setupXHRInterceptor(state) {
             const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
             const requestUrl = typeof this._url === 'string' ? this._url : '';
 
-            const isSFCCRoute = config.endpointFilter ? config.endpointFilter.test(requestUrl) : true;
+            const isMonitoredRoute = config.endpointFilter ? config.endpointFilter.test(requestUrl) : true;
             const isInternalRoute = requestUrl.includes(config.endpoint);
 
-            if (isSFCCRoute && !isInternalRoute) {
+            if (isMonitoredRoute && !isInternalRoute) {
                 this.addEventListener('loadend', async () => {
                     try {
                         const duration = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime;
@@ -233,11 +234,13 @@ export function setupXHRInterceptor(state) {
                             }
                         }
                     } catch (e) {
+                        // eslint-disable-next-line no-console
                         if (config.debug) console.warn('[Pulsar] XHR loadend hook error', e);
                     }
                 });
             }
         } catch (e) {
+            // eslint-disable-next-line no-console
             if (config.debug) console.warn('[Pulsar] XHR send intercept failed', e);
         }
         return state.originalXhrSend.apply(this, arguments);

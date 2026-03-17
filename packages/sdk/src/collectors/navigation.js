@@ -2,7 +2,7 @@
  * PulsarJS — Navigation & Journey Collectors
  * Page views, SPA route changes, campaign entry, tab visibility.
  *
- * These are the primary ECKG nodes — the server builds
+ * These are the primary event stream nodes — the server builds
  * "preceded", "caused", and temporal edges from this stream.
  */
 import { Sanitizers } from '../utils/sanitizers.js';
@@ -107,14 +107,22 @@ export function setupNavigationTracking(state) {
     state._navVisibilityHandler = onVisibility;
 }
 
-async function emitPageView(state, pageInfo, referrerType, fromPageType) {
+export async function emitPageView(state, pageInfo, referrerType, fromPageType) {
     const metadata = {
         page_type: pageInfo.type,
         referrer_type: referrerType,
         from_page_type: fromPageType,
         path: Sanitizers.sanitizeUrl(window.location.pathname)
     };
-    if (pageInfo.product_ref) metadata.product_ref = pageInfo.product_ref;
+    if (pageInfo.product_ref) {
+        const sanitizedRef = Sanitizers.redactPII(pageInfo.product_ref);
+        metadata.product_ref = sanitizedRef;
+
+        // PUL-030: deduplicate and store for manifest
+        if (state.productRefs && !state.productRefs.includes(sanitizedRef)) {
+            state.productRefs.push(sanitizedRef);
+        }
+    }
 
     const eventId = await state.capture({
         event_type: 'PAGE_VIEW',

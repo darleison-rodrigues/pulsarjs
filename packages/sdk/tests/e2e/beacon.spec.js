@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('PulsarJS E2E Payload Verification', () => {
     test('SDK initialization sends valid payload via navigator.sendBeacon or fetch', async ({ page }) => {
         // Log console output from the browser
+        // eslint-disable-next-line no-console
         page.on('console', msg => console.log('BROWSER LOG:', msg.text()));
 
         // Navigate to our local test page where the SDK is injected
@@ -18,6 +19,7 @@ test.describe('PulsarJS E2E Payload Verification', () => {
 
         // Check if the script loaded properly
         const isPulsarDefined = await page.evaluate(() => typeof window.Pulsar !== 'undefined');
+        // eslint-disable-next-line no-console
         console.log('Is Pulsar defined?', isPulsarDefined);
 
         // Wait for the request to be captured

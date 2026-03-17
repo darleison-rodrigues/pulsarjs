@@ -1,7 +1,7 @@
 /**
  * PulsarJS — Interaction Collectors
  * Scroll depth milestones and rage click detection.
- * These events feed ECKG edges: engagement depth, frustration signals.
+ * These events feed causal edges: engagement depth, frustration signals.
  */
 
 /**
@@ -66,7 +66,7 @@ function emitScroll(state, depth) {
 
 /**
  * Detect rapid repeated clicks on the same element.
- * ECKG signal: frustration → often precedes or follows an API_FAILURE.
+ * Frustration signal → often precedes or follows an API_FAILURE.
  */
 export function setupRageClickDetector(state) {
     const threshold = state.config.rageClickThreshold;
