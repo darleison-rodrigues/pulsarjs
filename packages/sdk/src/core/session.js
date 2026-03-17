@@ -3,6 +3,44 @@
  * Ephemeral session ID generation. crypto.randomUUID() only, no Math.random().
  */
 
+export const SESSION_KEY = '_pulsar_session_state';
+
+export function getPersistedSession() {
+    try {
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+            const data = window.sessionStorage.getItem(SESSION_KEY);
+            if (data) return JSON.parse(data);
+        }
+    } catch (_e) {
+        // ignore
+    }
+    return null;
+}
+
+export function persistSession(state) {
+    try {
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+            const data = {
+                sessionID: state.sessionID,
+                sessionStartedAt: state.sessionStartedAt,
+                lastErrorEventId: state.lastErrorEventId,
+                lastCommerceEventId: state.lastCommerceEventId,
+                lastCommerceAction: state.lastCommerceAction,
+                lastFailedCommerceAction: state.lastFailedCommerceAction,
+                firstPageViewEventId: state.firstPageViewEventId,
+                entryPageType: state.entryPageType,
+                entryReferrerType: state.entryReferrerType,
+                entryCampaignSource: state.entryCampaignSource,
+                pageCount: state.pageCount,
+                _droppedEventsCount: state._droppedEventsCount
+            };
+            window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
+        }
+    } catch (_e) {
+        // ignore
+    }
+}
+
 export function generateSessionID() {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
         return crypto.randomUUID();

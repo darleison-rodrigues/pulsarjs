@@ -172,6 +172,12 @@ Missing keys are filled from sensible generic ecommerce defaults.
 | `scrollDepthMilestones` | `number[]` | `[25,50,75,100]` | Scroll trigger points |
 | `debug` | `boolean` | `false` | Console logging |
 
+### Custom Endpoints & S3 Export
+
+PulsarJS is not hardcoded to `api.pulsarjs.com`. You can configure the `endpoint` to point to your own API Gateway, Kinesis Firehose, or custom backend to route events to a data lake or S3 bucket.
+
+For details on the exact JSON payload the SDK sends and the expectations for a custom backend (handling out-of-order delivery and dangling causal references), please see [Exporting Data to Custom Endpoints (docs/EXPORT.md)](docs/EXPORT.md).
+
 ### Public API
 
 ```javascript
