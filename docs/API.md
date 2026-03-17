@@ -1,6 +1,6 @@
 # PulsarJS API Reference
 
-Privacy-first error monitoring & RUM for SFCC storefronts.
+Privacy-first commerce instrumentation SDK — platform-agnostic, knowledge-graph-driven.
 
 **Base URL**: `https://api.pulsarjs.com`
 
@@ -36,13 +36,14 @@ Server-side rate limiting and origin allowlists handle authenticated ingestion.
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `clientId` | `string` | **Required** | Your PulsarJS tenant ID |
-| `siteId` | `string` | `'unknown'` | SFCC Site ID (e.g., RefArch) |
+| `siteId` | `string` | `'unknown'` | Site identifier (e.g., RefArch) |
 | `endpoint` | `string` | `https://api.pulsarjs.com/v1/ingest` | Ingestion endpoint URL |
 | `storefrontType` | `string` | `'PWA_KIT'` | `PWA_KIT` or `SITEGENESIS` |
+| `platform` | `string\|object` | `'sfcc'` | Platform provider. Built-in: `'sfcc'`. Pass an object for custom providers (see below). |
 | `sampleRate` | `number` | `1.0` | Session sampling rate (0–1) |
 | `beforeSend` | `function` | `null` | Async hook to filter/enrich events. Return `null` to drop. |
 | `beforeSendTimeout` | `number` | `2000` | Max ms to wait for `beforeSend` |
-| `endpointFilter` | `RegExp` | SFCC routes | Regex to filter which fetch/XHR calls are monitored |
+| `endpointFilter` | `RegExp` | from provider | Regex to filter which fetch/XHR calls are monitored. Overrides provider default. |
 | `criticalSelectors` | `string[]` | Error UI selectors | CSS selectors for MutationObserver (error UI detection) |
 | `maxBreadcrumbs` | `number` | `100` | Max breadcrumbs in circular buffer |
 | `slowApiThreshold` | `number` | `1000` | Latency threshold (ms) for API_LATENCY events |
@@ -81,6 +82,44 @@ Returns the current `Scope` instance for tag/breadcrumb management:
 ```javascript
 Pulsar.getScope().setTag('experiment', 'v2_checkout');
 Pulsar.getScope().setUser({ segment: 'vip' });
+```
+
+---
+
+## PlatformProvider Interface
+
+Custom platform providers can be passed via the `platform` config option. A provider is an object with the following shape:
+
+```javascript
+/**
+ * @typedef {Object} PlatformProvider
+ * @property {string} name                 - Provider identifier ('sfcc', 'shopify', 'custom')
+ * @property {Function} extractContext     - Returns platform-specific metadata object
+ * @property {Array} commerceActions       - [{action, method, pattern}] commerce API patterns
+ * @property {Array} pageTypes             - [[RegExp, string]] page type patterns
+ * @property {RegExp|null} endpointFilter  - Which fetch/XHR calls to monitor
+ * @property {Array} [piiPatterns]         - [{pattern, replacement}] additional PII redaction rules
+ */
+```
+
+Missing keys are filled from generic ecommerce defaults. Example:
+
+```javascript
+Pulsar.init({
+    clientId: 'your-tenant-id',
+    platform: {
+        name: 'shopify',
+        extractContext: () => ({
+            shop_id: window.Shopify?.shop,
+            theme_id: window.Shopify?.theme?.id
+        }),
+        commerceActions: [
+            { action: 'cart_add', method: 'POST', pattern: /\/cart\/add/i },
+            { action: 'checkout', method: 'POST', pattern: /\/checkout/i }
+        ],
+        endpointFilter: /\/cart\/|\/checkout\//i
+    }
+});
 ```
 
 ---
