@@ -128,6 +128,9 @@ export function setupErrorHandlers(state) {
             globalScope.addBreadcrumb({
                 category: 'ui.click',
                 message: `${tag}${id}${cls}`,
+                // We should also implement defensive performance check just in case,
+                // although it was mentioned the original PR wrapped performance.now in network.js,
+                // this also has it in errors.js.
                 time_since_load_ms: typeof performance !== 'undefined' && typeof performance.now === 'function' ? Math.round(performance.now()) : 0
             });
         } catch (err) {

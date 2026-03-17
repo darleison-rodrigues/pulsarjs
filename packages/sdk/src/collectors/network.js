@@ -57,7 +57,7 @@ export function setupFetchInterceptor(state) {
             }
             startTime = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
         } catch (e) {
-            if (config.debug) console.warn('[Pulsar] fetch pre-processing failed', e);
+            if (config?.debug) console.warn('[Pulsar] fetch pre-processing failed', e);
         }
 
         let response;
@@ -77,7 +77,7 @@ export function setupFetchInterceptor(state) {
                     state.processedErrors.add(error);
                 }
             } catch (e) {
-                if (config.debug) console.warn('[Pulsar] fetch error capture failed', e);
+                if (config?.debug) console.warn('[Pulsar] fetch error capture failed', e);
             }
             throw error;
         }
@@ -142,7 +142,7 @@ export function setupFetchInterceptor(state) {
                 }
             }
         } catch (e) {
-            if (config.debug) console.warn('[Pulsar] fetch post-processing failed', e);
+            if (config?.debug) console.warn('[Pulsar] fetch post-processing failed', e);
         }
 
         return response;

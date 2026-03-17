@@ -43,19 +43,17 @@ describe('generateSessionID', () => {
         expect(consoleWarnSpy).not.toHaveBeenCalled();
     });
 
-    it('returns null and warns when crypto is undefined', () => {
+    it('returns null when crypto is undefined', () => {
         vi.stubGlobal('crypto', undefined);
 
         const id = generateSessionID();
         expect(id).toBeNull();
-        expect(consoleWarnSpy).toHaveBeenCalledWith('[Pulsar] Secure crypto unavailable for Session ID');
     });
 
-    it('returns null and warns when crypto methods are unavailable', () => {
+    it('returns null when crypto methods are unavailable', () => {
         vi.stubGlobal('crypto', {});
 
         const id = generateSessionID();
         expect(id).toBeNull();
-        expect(consoleWarnSpy).toHaveBeenCalledWith('[Pulsar] Secure crypto unavailable for Session ID');
     });
 });

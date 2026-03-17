@@ -40,7 +40,8 @@ describe('SDK Hardening - Defensive Coding', () => {
 
         const state = {
             config: { debug: false, endpointFilter: /.*/, commerceActions: [] },
-            capture: vi.fn()
+            capture: vi.fn(),
+            processedErrors: new WeakSet()
         };
 
         setupFetchInterceptor(state);
@@ -95,15 +96,9 @@ describe('SDK Hardening - Defensive Coding', () => {
         const originalFetch = vi.fn();
         vi.stubGlobal('fetch', originalFetch);
 
-        const instance = Pulsar.createInstance();
-        instance.init({ clientId: 'test-client', debug: false });
-
-        const firstPatchedFetch = window.fetch;
-        // In some environments, if endpoint filter rejects or something, fetch might not get patched
-        // But the init logic should patch it. Wait, the mock `originalFetch` is not being patched?
-        // Oh, maybe `setupFetchInterceptor` checks `!window.fetch`.
-        // Actually it's because the test initializes instance asynchronously via requestIdleCallback/setTimeout!
-        // We need to wait or advance timers!
+        // This covers the specific requirement "SDK loaded twice on same page -> no double-patching".
+        // Since `window.fetch` is a global, we test that invoking `init` twice on the SAME instance avoids double patching.
+        // In the codebase `isInitialized` check prevents the setup functions from being run again.
         vi.useFakeTimers();
         const instanceToInit = Pulsar.createInstance();
         instanceToInit.init({ clientId: 'test-client', debug: false });
