@@ -132,9 +132,18 @@ export async function emitPageView(state, pageInfo, referrerType, fromPageType) 
         is_blocking: false
     });
 
-    // PUL-028: track first PAGE_VIEW for caused edge
-    if (!state.firstPageViewEventId && eventId) {
-        state.firstPageViewEventId = eventId;
+    if (eventId) {
+        // PUL-029: session context tracking
+        state.pageCount++;
+        if (!state.entryPageType) {
+            state.entryPageType = pageInfo.type;
+            state.entryReferrerType = referrerType;
+        }
+
+        // PUL-028: track first PAGE_VIEW for caused edge
+        if (!state.firstPageViewEventId) {
+            state.firstPageViewEventId = eventId;
+        }
     }
 }
 
@@ -168,6 +177,11 @@ function emitCampaignEntry(state) {
         }
 
         if (Object.keys(data).length === 0) return;
+
+        // PUL-029: track campaign source for flush envelope
+        if (!state.entryCampaignSource) {
+            state.entryCampaignSource = data.utm_source || 'paid';
+        }
 
         state.capture({
             event_type: 'CAMPAIGN_ENTRY',
