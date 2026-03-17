@@ -1,19 +1,19 @@
 # CLAUDE.md — PulsarJS SDK
 
-> AI assistant instructions for building PulsarJS: a privacy-first ECKG-driven observability SDK for SFCC storefronts.
+> AI assistant instructions for building PulsarJS: a privacy-first, causality-aware commerce instrumentation SDK.
 
 ---
 
 ## Project Identity
 
-**PulsarJS** is a client-side JavaScript SDK targeting Salesforce Commerce Cloud (SFCC) storefronts (PWA Kit and SiteGenesis). It captures behavioral events — page views, commerce actions, scroll depth, rage clicks, API failures, Core Web Vitals — and ships them to an edge server that constructs an **Event-Centric Knowledge Graph (ECKG)** per session.
+**PulsarJS** is a client-side JavaScript SDK for commerce storefronts (SFCC, Shopify, custom). It captures behavioral events — page views, commerce actions, scroll depth, rage clicks, API failures, Core Web Vitals — and ships them to an edge server that builds a **causal event stream** per session.
 
-The SDK emits **graph nodes**. The server infers **graph edges** (preceded, caused, blocked_by, frustrated_by, abandoned_at) from session ordering. The value is in the causal chain, not the individual event.
+The SDK emits **events**. The server infers **causal edges** (preceded, caused, blocked_by, frustrated_by, abandoned_at) from session ordering. The value is in the causal chain, not the individual event.
 
-The product competes in the space between "too expensive" (Noibu, Quantum Metric) and "not SFCC-aware" (Sentry, Datadog). The differentiator is deep SFCC context (`dwsid`, `dwac_*` cookies, page type inference, SCAPI commerce action detection) combined with a lightweight, privacy-respecting footprint and ECKG-driven insights.
+The product competes in the space between "too expensive" (Noibu, Quantum Metric) and "not commerce-aware" (Sentry, Datadog). The differentiator is deep commerce context (platform providers for SFCC, Shopify, etc.), page type inference, and commerce action detection — combined with a lightweight, privacy-respecting footprint and causality-aware insights.
 
 **Moat statement:**
-> A zero-dependency JavaScript beacon that captures the full shopper journey across your Salesforce Commerce Cloud storefront — from campaign click to checkout — and feeds an Event-Centric Knowledge Graph that turns behavioral telemetry into revenue insights. Without touching your Lighthouse score.
+> A zero-dependency JavaScript beacon that captures the full shopper journey across your commerce storefront — from campaign click to checkout — and builds causal event chains that connect behavioral telemetry to revenue impact. Without touching your Lighthouse score.
 
 ---
 
@@ -158,7 +158,7 @@ pulsarjs/
 
 ## Event Types
 
-The SDK emits these event types as ECKG graph nodes. Each event carries an `event_id` (`{session_id}:{seq}`) for monotonic ordering.
+The SDK emits these event types as stream nodes. Each event carries an `event_id` (`{session_id}:{seq}`) for monotonic ordering.
 
 | event_type | Category | Emitted by | Description |
 |---|---|---|---|
@@ -201,9 +201,9 @@ The SDK sends raw params only. The server resolves them into a structured taxono
 
 ---
 
-## Channel Taxonomy & ECKG Ontology
+## Channel Taxonomy & Event Ontology
 
-The ECKG has two classification systems that work together: a **Channel Taxonomy** (how traffic is classified) and an **Event Ontology** (how events relate to each other). The SDK provides the raw signals; the server applies both.
+The causal event stream has two classification systems that work together: a **Channel Taxonomy** (how traffic is classified) and an **Event Ontology** (how events relate to each other). The SDK provides the raw signals; the server applies both.
 
 ### Why Both?
 
@@ -250,9 +250,9 @@ Channel (what budget line)
 **SDK responsibility**: Capture all raw params. Never classify.
 **Server responsibility**: Apply taxonomy rules. Store resolved channel on the session. Propagate to all events in that session for aggregation.
 
-### Event Ontology (ECKG Structure)
+### Event Ontology (Causal Stream Structure)
 
-The ontology defines **what types of nodes exist**, **what edges connect them**, and **what constraints govern those relationships**. This is the formal structure of the knowledge graph.
+The ontology defines **what types of nodes exist**, **what edges connect them**, and **what constraints govern those relationships**. This is the formal structure of the causal event stream.
 
 #### Node Types (Event Classes)
 
@@ -382,7 +382,7 @@ Status reflects the actual codebase as of 2026-03-13.
 ### P3 — From SOC2 audit
 
 11. **~~HMAC signing in capture.js flush~~ DONE**
-    - No HMAC code exists in the SDK. Removed during ECKG refactor.
+    - No HMAC code exists in the SDK. Removed during causal stream refactor.
     - Server uses origin validation + `X-Pulsar-Client-Id` header.
 
 12. **~~SECURITY.md version numbers~~ DONE**
@@ -422,7 +422,7 @@ Enforced at the Cloudflare Workers layer, not in the SDK. The SDK must not inclu
 See Device Signal Strategy above.
 
 **10. The SDK emits nodes, the server computes edges**
-The SDK's job is to emit well-ordered, well-typed events with monotonic `event_id` (`session_id:seq`). It should never try to infer relationships between events — that's the server's ECKG responsibility.
+The SDK's job is to emit well-ordered, well-typed events with monotonic `event_id` (`session_id:seq`). It should never try to infer relationships between events — that's the server's responsibility.
 
 **11. Debounce, don't flood**
 Flush is debounced at 2 seconds. Every new event resets the timer. `sendBeacon` on page hide for final delivery. Never flush per-event.

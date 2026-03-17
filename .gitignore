@@ -171,3 +171,4 @@ terraform/
 context
 BACKLOG_audit.md
 GEMINI.md
+.claude

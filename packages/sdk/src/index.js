@@ -1,7 +1,7 @@
 /**
  * PulsarJS SDK
- * Privacy-first event stream for SFCC storefronts.
- * Emits ordered, non-PII events that feed an Event-Centric Knowledge Graph.
+ * Privacy-first event stream for commerce storefronts.
+ * Emits ordered, non-PII events that feed a causal event stream.
  *
  * Event types: PAGE_VIEW, SCROLL_DEPTH, CAMPAIGN_ENTRY, COMMERCE_ACTION,
  * JS_CRASH, API_FAILURE, API_LATENCY, NETWORK_ERROR, UI_FAILURE,
@@ -16,9 +16,10 @@ import { setupFetchInterceptor, setupXHRInterceptor } from './collectors/network
 import { setupPerformanceObserver, captureRUM } from './collectors/rum.js';
 import { setupNavigationTracking } from './collectors/navigation.js';
 import { setupScrollObserver, setupRageClickDetector } from './collectors/interactions.js';
-import { extractSFCCContext } from './integrations/sfcc.js';
+import { resolveProvider } from './providers/provider.js';
 import { captureEnvironment, extractCampaigns } from './utils/environment.js';
 import { buildDeviceInfo } from './utils/device.js';
+import { Sanitizers } from './utils/sanitizers.js';
 
 const Pulsar = (function () {
 
@@ -45,6 +46,7 @@ const Pulsar = (function () {
             firstDropUrl: null,  // URL captured at drop time (accurate in SPAs)
             firstDropSessionId: null,  // session captured at drop time
             queue: [],
+            productRefs: [], // PUL-030: PDP product identifiers for manifest
 
             // PUL-028: causal tracking for edge hints
             lastErrorEventId: null,         // set by errors.js after JS_CRASH / UI_FAILURE
@@ -86,7 +88,8 @@ const Pulsar = (function () {
             _rageClickHandler: null,
 
             // Bound helpers for modules
-            extractSFCCContext: () => extractSFCCContext(extractCampaigns, config.pageTypes),
+            // extractPlatformContext is re-bound inside init() after provider resolution
+            extractPlatformContext: () => ({}),
             captureEnvironment: captureEnvironment,
             device: null, // set once at init() — device cohort + hints (PUL-026)
             capture: null, // set after pipeline creation
@@ -110,10 +113,32 @@ const Pulsar = (function () {
 
                     const errors = validateConfig(config);
                     if (errors.length > 0) {
+                        // eslint-disable-next-line no-console
                         if (config.debug) errors.forEach(e => console.warn(`[Pulsar] ${e}`));
                         enabled = false;
                         return;
                     }
+
+                    // Resolve platform provider
+                    const provider = resolveProvider(config.platform);
+
+                    // User overrides win over provider defaults
+                    config.commerceActions = usrConfig.commerceActions || provider.commerceActions;
+                    config.pageTypes = usrConfig.pageTypes || provider.pageTypes;
+                    config.endpointFilter = usrConfig.endpointFilter || provider.endpointFilter;
+
+                    // Register provider PII patterns
+                    if (provider.piiPatterns && provider.piiPatterns.length > 0) {
+                        Sanitizers.registerPiiPatterns(provider.piiPatterns);
+                    }
+
+                    // Bind extractPlatformContext with resolved provider
+                    state.extractPlatformContext = () => {
+                        const ctx = provider.extractContext();
+                        const campaign = extractCampaigns();
+                        if (campaign) ctx.campaign = campaign;
+                        return ctx;
+                    };
 
                     if (!sessionID) sessionID = generateSessionID();
                     if (!state.sessionStartedAt) state.sessionStartedAt = new Date().toISOString();
@@ -134,7 +159,7 @@ const Pulsar = (function () {
                     setupFetchInterceptor(state);
                     setupXHRInterceptor(state);
 
-                    // ECKG event collectors
+                    // Journey event collectors
                     setupNavigationTracking(state);
                     setupScrollObserver(state);
                     setupRageClickDetector(state);
@@ -154,6 +179,7 @@ const Pulsar = (function () {
                     document.addEventListener('visibilitychange', state.visibilityHandler);
 
                     isInitialized = true;
+                    // eslint-disable-next-line no-console
                     if (config.debug) console.log('[Pulsar] Initialized', config.clientId);
                 };
 
@@ -164,6 +190,7 @@ const Pulsar = (function () {
             enable: function () {
                 if (isSampled === null) isSampled = Math.random() <= config.sampleRate;
                 if (!isSampled) {
+                    // eslint-disable-next-line no-console
                     if (config.debug) console.log('[Pulsar] Session excluded by sampling');
                     return;
                 }
@@ -203,6 +230,7 @@ const Pulsar = (function () {
                 if (state._rageClickHandler) { document.removeEventListener('click', state._rageClickHandler, true); state._rageClickHandler = null; }
 
                 isInitialized = false;
+                // eslint-disable-next-line no-console
                 if (config.debug) console.log('[Pulsar] Disabled');
             },
 

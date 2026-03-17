@@ -1,9 +1,20 @@
 /**
  * PulsarJS Privacy Sanitizers
  * PII redaction at capture time — before data enters the queue.
+ * Provider-extensible via registerPiiPatterns().
  */
 
+let _extraPatterns = [];
+
 export const Sanitizers = {
+    /**
+     * Register additional PII patterns from a platform provider.
+     * @param {Array<{pattern: RegExp, replacement: string}>} patterns
+     */
+    registerPiiPatterns(patterns) {
+        _extraPatterns = _extraPatterns.concat(patterns);
+    },
+
     /**
      * Remove PII patterns from error messages.
      */
@@ -20,11 +31,13 @@ export const Sanitizers = {
         // Phone numbers (simple US/International format)
         v = v.replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, '[PHONE_REDACTED]');
 
-        // SFCC customer IDs
-        v = v.replace(/\b\w+Customer-ID-\d+\b/gi, '[CUSTOMER_ID_REDACTED]');
-
         // Generic tokens (long alphanumeric strings 32+ chars)
         v = v.replace(/\b[A-Za-z0-9]{32,}\b/g, '[TOKEN_REDACTED]');
+
+        // Provider-registered PII patterns
+        for (const { pattern, replacement } of _extraPatterns) {
+            v = v.replace(pattern, replacement);
+        }
 
         return v.substring(0, 1000);
     },
@@ -65,7 +78,7 @@ export const Sanitizers = {
                 return parsed.pathname.substring(0, 500);
             }
             return (parsed.origin + parsed.pathname).substring(0, 500);
-        } catch (e) {
+        } catch (_e) {
             return String(url).substring(0, 500);
         }
     },
@@ -81,5 +94,13 @@ export const Sanitizers = {
         v = v.replace(/\/baskets\/[a-z0-9]+/gi, '/baskets/{basket_id}');
         v = v.replace(/\/orders\/[a-z0-9]+/gi, '/orders/{order_id}');
         return v.substring(0, 200);
+    },
+
+    /**
+     * Reset extra patterns — used in tests.
+     * @internal
+     */
+    _resetPiiPatterns() {
+        _extraPatterns = [];
     }
 };

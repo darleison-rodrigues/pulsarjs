@@ -1,6 +1,9 @@
 /**
  * PulsarJS — Configuration
  * Default config schema and validation.
+ *
+ * Commerce-specific defaults (commerceActions, pageTypes, endpointFilter) are
+ * supplied by the platform provider — see providers/provider.js.
  */
 
 export const DEFAULT_CONFIG = {
@@ -8,9 +11,9 @@ export const DEFAULT_CONFIG = {
     endpoint: 'https://api.pulsarjs.com/v1/ingest',
     siteId: 'unknown',
     storefrontType: 'PWA_KIT',
+    platform: 'sfcc',
     enabled: true,
     sampleRate: 1.0,
-    endpointFilter: /\/baskets\/|\/orders\/|\/products\/|\/shopper\//i,
     criticalSelectors: ['.error-message', '.alert-danger', '.checkout-error', '.toast-error'],
     beforeSend: null,
     beforeSendTimeout: 2000,
@@ -22,23 +25,11 @@ export const DEFAULT_CONFIG = {
     rageClickWindow: 1000,
     scrollDepthMilestones: [25, 50, 75, 100],
 
-    // PUL-027: configurable commerce action & page type mappings
-    // Defaults match SFCC SCAPI patterns. Override for Shopify, custom platforms, etc.
-    commerceActions: [
-        { action: 'cart_add',    method: 'POST',   pattern: /\/baskets\/[^/]+\/items/i },
-        { action: 'cart_update', method: 'PATCH',  pattern: /\/baskets\//i },
-        { action: 'cart_remove', method: 'DELETE',  pattern: /\/baskets\/[^/]+\/items/i },
-        { action: 'checkout',    method: 'POST',   pattern: /\/orders/i },
-        { action: 'search',      method: 'GET',    pattern: /\/product-search/i }
-    ],
-    pageTypes: [
-        [/\/checkout/i, 'Checkout'],
-        [/\/cart/i, 'Cart'],
-        [/\/p\/([^/?]+)/i, 'PDP'],
-        [/\/d\//i, 'PLP'],
-        [/\/search/i, 'Search'],
-        [/^\/$/,  'Home']
-    ],
+    // These can be set by the user to override provider defaults.
+    // If not set, they are populated from the resolved provider in index.js init().
+    // commerceActions: undefined,
+    // pageTypes: undefined,
+    // endpointFilter: undefined,
 
     debug: false
 };
@@ -48,7 +39,7 @@ export const DEFAULT_CONFIG = {
  */
 export function validateConfig(config) {
     const errors = [];
-    const { clientId, endpoint, sampleRate, endpointFilter } = config;
+    const { clientId, endpoint, sampleRate, endpointFilter, platform } = config;
 
     if (!clientId || typeof clientId !== 'string') {
         errors.push('Missing or invalid clientId. SDK disabled.');
@@ -64,6 +55,9 @@ export function validateConfig(config) {
     }
     if (config.nonce !== null && typeof config.nonce !== 'string') {
         errors.push('nonce must be a string.');
+    }
+    if (platform !== undefined && typeof platform !== 'string' && (typeof platform !== 'object' || !platform.name)) {
+        errors.push('platform must be a string or an object with a name property.');
     }
     return errors;
 }

@@ -1,6 +1,6 @@
-# What Changed: PulsarJS ECKG Evolution
+# What Changed: PulsarJS Causal Event Stream Evolution
 
-PulsarJS has transitioned from a simple error/RUM observer to an **Event-Centric Knowledge Graph (ECKG)** data source. This shift focuses on high-fidelity user journeys and commerce signals while removing non-observability features.
+PulsarJS has transitioned from a simple error/RUM observer to a **causal event stream** data source. This shift focuses on high-fidelity user journeys and commerce signals while removing non-observability features.
 
 ---
 
@@ -9,7 +9,7 @@ PulsarJS has transitioned from a simple error/RUM observer to an **Event-Centric
 - **File**: `packages/agent/src/index.js`
 - **Change**: Reduced from 156 lines of promotional/banner logic to a simple deprecation notice. Promotional interventions are no longer in scope for PulsarJS.
 
-## 2. New ECKG Collectors (Event Sources)
+## 2. New Event Collectors (Event Sources)
 
 ### `collectors/interactions.js` (New)
 Captures granular user engagement signals:
@@ -49,7 +49,7 @@ New levers added to `core/config.js`:
 The `CAMPAIGN_ENTRY` event now captures 16 attribution parameters (up from 8), covering the full paid acquisition ecosystem:
 - **Added**: `gbraid`, `wbraid` (Google iOS privacy), `ttclid` (TikTok), `twclid` (X/Twitter), `li_fat_id` (LinkedIn), `pin_unauth` (Pinterest), `sccid` (Snapchat), `dclid` (Google DV360), `irclickid` (Impact Radius), `aff_id`, `clickid` (generic affiliate)
 - **Existing**: `utm_*`, `gclid`, `fbclid`, `msclkid`
-- The server maps raw params to a **channel taxonomy** (channel → platform → product → intent) for ECKG enrichment.
+- The server maps raw params to a **channel taxonomy** (channel → platform → product → intent) for causal stream enrichment.
 
 ## 7. Cleanup & Teardown
 - **API Cleanup**: Removed `Pulsar.push()` (which was agent-only).
@@ -58,8 +58,8 @@ The `CAMPAIGN_ENTRY` event now captures 16 attribution parameters (up from 8), c
 
 ---
 
-## Example ECKG Stream
-A typical SFCC user session now produces a reconstructible graph:
+## Example Causal Event Stream
+A typical commerce session now produces a reconstructible causal chain:
 
 ```
 CAMPAIGN_ENTRY(utm_source=google)  ──→  PAGE_VIEW(Home)  ──→  SCROLL_DEPTH(50%)
