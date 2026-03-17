@@ -52,7 +52,5 @@ export function generateSessionID() {
             return v.toString(16);
         });
     }
-    // eslint-disable-next-line no-console
-    console.warn('[Pulsar] Secure crypto unavailable for Session ID');
     return null;
 }
