@@ -49,7 +49,12 @@ describe('Pulsar Capture Pipeline', () => {
         const batch = JSON.parse(await blob.text());
         
         expect(batch.product_refs).toEqual(['prod-1', 'prod-2']);
-        expect(mockState.productRefs).toEqual([]);
+        // Add another event and flush again to verify product_refs was cleared
+        mockState.queue.push({ event_type: 'CUSTOM_EVENT' });
+        await pipeline.flush();
+        const secondBlob = sendBeaconSpy.mock.calls[1][1];
+        const secondBatch = JSON.parse(await secondBlob.text());
+        expect(secondBatch.product_refs).toEqual([]);
     });
 
     it('includes product_refs in flushOnHide', async () => {
@@ -73,6 +78,11 @@ describe('Pulsar Capture Pipeline', () => {
         const batch = JSON.parse(await blob.text());
         
         expect(batch.product_refs).toEqual(['prod-3']);
-        expect(mockState.productRefs).toEqual([]);
+        // Add another event and verify product_refs was cleared
+        mockState.queue.push({ event_type: 'CUSTOM_EVENT' });
+        pipeline.flushOnHide();
+        const secondBlob = sendBeaconSpy.mock.calls[1][1];
+        const secondBatch = JSON.parse(await secondBlob.text());
+        expect(secondBatch.product_refs).toEqual([]);
     });
 });

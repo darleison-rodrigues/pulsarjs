@@ -28,7 +28,13 @@ test.describe('PulsarJS E2E Payload Verification', () => {
         // Parse the payload body
         // Note: sendBeacon is the primary transport and does not support custom
         // headers — client_id is verified inside the JSON body instead.
-        const postData = request.postDataJSON();
+        let postData;
+        try {
+            const rawBody = request.postDataBuffer() ? request.postDataBuffer().toString() : request.postData();
+            postData = rawBody ? JSON.parse(rawBody) : request.postDataJSON();
+        } catch (e) {
+            console.error('Failed to parse beacon payload', e);
+        }
 
         // Assert exactly what the payload should contain based on domain rules
         expect(postData).toHaveProperty('pulsar_version');
