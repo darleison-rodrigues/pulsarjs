@@ -152,7 +152,7 @@ const Pulsar = (function () {
                     const errors = validateConfig(config);
                     if (errors.length > 0) {
                         // eslint-disable-next-line no-console
-                        if (config.debug) errors.forEach(e => console.warn(`[Pulsar] ${e}`));
+                        if (config?.debug) errors.forEach(e => console.warn(`[Pulsar] ${e}`));
                         enabled = false;
                         return;
                     }
@@ -178,7 +178,7 @@ const Pulsar = (function () {
                             if (campaign) ctx.campaign = campaign;
                             return ctx;
                         } catch (e) {
-                            if (config.debug) console.warn('[Pulsar] extractPlatformContext failed', e);
+                            if (config?.debug) console.warn('[Pulsar] extractPlatformContext failed', e);
                             return {};
                         }
                     };
@@ -197,15 +197,15 @@ const Pulsar = (function () {
                     state.device = buildDeviceInfo();
 
                     // Error & performance collectors
-                    try { setupPerformanceObserver(state); } catch (e) { if (config.debug) console.warn('[Pulsar] setupPerformanceObserver failed', e); }
-                    try { setupErrorHandlers(state); } catch (e) { if (config.debug) console.warn('[Pulsar] setupErrorHandlers failed', e); }
-                    try { setupFetchInterceptor(state); } catch (e) { if (config.debug) console.warn('[Pulsar] setupFetchInterceptor failed', e); }
-                    try { setupXHRInterceptor(state); } catch (e) { if (config.debug) console.warn('[Pulsar] setupXHRInterceptor failed', e); }
+                    try { setupPerformanceObserver(state); } catch (e) { if (config?.debug) console.warn('[Pulsar] setupPerformanceObserver failed', e); }
+                    try { setupErrorHandlers(state); } catch (e) { if (config?.debug) console.warn('[Pulsar] setupErrorHandlers failed', e); }
+                    try { setupFetchInterceptor(state); } catch (e) { if (config?.debug) console.warn('[Pulsar] setupFetchInterceptor failed', e); }
+                    try { setupXHRInterceptor(state); } catch (e) { if (config?.debug) console.warn('[Pulsar] setupXHRInterceptor failed', e); }
 
                     // Journey event collectors
-                    try { setupNavigationTracking(state); } catch (e) { if (config.debug) console.warn('[Pulsar] setupNavigationTracking failed', e); }
-                    try { setupScrollObserver(state); } catch (e) { if (config.debug) console.warn('[Pulsar] setupScrollObserver failed', e); }
-                    try { setupRageClickDetector(state); } catch (e) { if (config.debug) console.warn('[Pulsar] setupRageClickDetector failed', e); }
+                    try { setupNavigationTracking(state); } catch (e) { if (config?.debug) console.warn('[Pulsar] setupNavigationTracking failed', e); }
+                    try { setupScrollObserver(state); } catch (e) { if (config?.debug) console.warn('[Pulsar] setupScrollObserver failed', e); }
+                    try { setupRageClickDetector(state); } catch (e) { if (config?.debug) console.warn('[Pulsar] setupRageClickDetector failed', e); }
 
                     // Flush RUM + queue on page hide
                     try {
@@ -221,24 +221,24 @@ const Pulsar = (function () {
                                     pipeline.flushOnHide();
                                 }
                             } catch (e) {
-                                if (config.debug) console.warn('[Pulsar] visibilityHandler failed', e);
+                                if (config?.debug) console.warn('[Pulsar] visibilityHandler failed', e);
                             }
                         };
                         document.addEventListener('visibilitychange', state.visibilityHandler);
                     } catch (e) {
-                        if (config.debug) console.warn('[Pulsar] visibility listener setup failed', e);
+                        if (config?.debug) console.warn('[Pulsar] visibility listener setup failed', e);
                     }
 
                     isInitialized = true;
                     // eslint-disable-next-line no-console
-                    if (config.debug) console.log('[Pulsar] Initialized', config.clientId);
+                    if (config?.debug) console.log('[Pulsar] Initialized', config.clientId);
                 };
 
                 try {
                     if (window.requestIdleCallback) window.requestIdleCallback(initializer);
                     else setTimeout(initializer, 1);
                 } catch (e) {
-                    if (config.debug) console.warn('[Pulsar] Init delay failed', e);
+                    if (config?.debug) console.warn('[Pulsar] Init delay failed', e);
                     initializer();
                 }
                 } catch (e) {
@@ -252,12 +252,12 @@ const Pulsar = (function () {
                     if (isSampled === null) isSampled = Math.random() <= config.sampleRate;
                     if (!isSampled) {
                         // eslint-disable-next-line no-console
-                        if (config.debug) console.log('[Pulsar] Session excluded by sampling');
+                        if (config?.debug) console.log('[Pulsar] Session excluded by sampling');
                         return;
                     }
                     enabled = true;
                 } catch (e) {
-                    if (config.debug) console.warn('[Pulsar] enable failed', e);
+                    if (config?.debug) console.warn('[Pulsar] enable failed', e);
                 }
             },
 
@@ -296,9 +296,9 @@ const Pulsar = (function () {
 
                     isInitialized = false;
                     // eslint-disable-next-line no-console
-                    if (config.debug) console.log('[Pulsar] Disabled');
+                    if (config?.debug) console.log('[Pulsar] Disabled');
                 } catch (e) {
-                    if (config.debug) console.warn('[Pulsar] disable failed', e);
+                    if (config?.debug) console.warn('[Pulsar] disable failed', e);
                 }
             },
 
@@ -307,21 +307,21 @@ const Pulsar = (function () {
                 try {
                     globalScope.setTag(key, value);
                 } catch (e) {
-                    if (config.debug) console.warn('[Pulsar] setTag failed', e);
+                    if (config?.debug) console.warn('[Pulsar] setTag failed', e);
                 }
             },
             setUser: function (id, email, metadata = {}) {
                 try {
                     globalScope.setUser({ id, email, ...metadata });
                 } catch (e) {
-                    if (config.debug) console.warn('[Pulsar] setUser failed', e);
+                    if (config?.debug) console.warn('[Pulsar] setUser failed', e);
                 }
             },
             addBreadcrumb: function (category, message, level = 'info') {
                 try {
                     globalScope.addBreadcrumb({ category, message, level });
                 } catch (e) {
-                    if (config.debug) console.warn('[Pulsar] addBreadcrumb failed', e);
+                    if (config?.debug) console.warn('[Pulsar] addBreadcrumb failed', e);
                 }
             },
 
@@ -338,7 +338,7 @@ const Pulsar = (function () {
                         config: { clientId: config.clientId, siteId: config.siteId, storefrontType: config.storefrontType }
                     };
                 } catch (e) {
-                    if (config.debug) console.warn('[Pulsar] getContext failed', e);
+                    if (config?.debug) console.warn('[Pulsar] getContext failed', e);
                     return {};
                 }
             },
@@ -354,7 +354,7 @@ const Pulsar = (function () {
                         is_blocking: false
                     });
                 } catch (e) {
-                    if (config.debug) console.warn('[Pulsar] captureException failed', e);
+                    if (config?.debug) console.warn('[Pulsar] captureException failed', e);
                 }
             },
 
@@ -371,7 +371,7 @@ const Pulsar = (function () {
                 try {
                     return pipeline.flush();
                 } catch (e) {
-                    if (config.debug) console.warn('[Pulsar] flush failed', e);
+                    if (config?.debug) console.warn('[Pulsar] flush failed', e);
                     return Promise.resolve();
                 }
             }
