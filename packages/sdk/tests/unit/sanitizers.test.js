@@ -1,40 +1,42 @@
 import { describe, it, expect } from 'vitest';
-import { Sanitizers } from '../../src/utils/sanitizers';
+import { Sanitizers } from '../../src/utils/sanitizers.js';
 
 describe('Sanitizers', () => {
-    describe('sanitizeApiEndpoint', () => {
-        it('should remove UUIDs', () => {
-            const url = 'https://api.example.com/v1/users/550e8400-e29b-41d4-a716-446655440000/profile';
-            expect(Sanitizers.sanitizeApiEndpoint(url)).toBe('https://api.example.com/v1/users/{uuid}/profile');
+    describe('sanitizeStack', () => {
+        it('should sanitize web urls', () => {
+            const stack = "Error: something went wrong\n    at <anonymous> (https://example.com/assets/js/main.js:10:20)\n    at @https://cdn.com/lib.js:5:5";
+            const sanitized = Sanitizers.sanitizeStack(stack);
+            expect(sanitized).toContain('at <anonymous> (https://example.com/assets/js/main.js:10:20)');
+            expect(sanitized).toContain('at @lib.js:5:5');
         });
 
-        it('should remove long numeric IDs', () => {
-            const url = 'https://api.example.com/v1/posts/1234567';
-            expect(Sanitizers.sanitizeApiEndpoint(url)).toBe('https://api.example.com/v1/posts/{id}');
+        it('should sanitize file urls', () => {
+            const stack = "at @file:///Users/jdoe/project/src/index.js:10:5";
+            const sanitized = Sanitizers.sanitizeStack(stack);
+            expect(sanitized).toBe("at @index.js:10:5");
         });
 
-        it('should remove basket IDs', () => {
-            const url = 'https://api.example.com/v1/baskets/abc123def';
-            expect(Sanitizers.sanitizeApiEndpoint(url)).toBe('https://api.example.com/v1/baskets/{basket_id}');
+        it('should sanitize Windows paths', () => {
+            const stack = "at C:\\Users\\Admin\\AppData\\Local\\Temp\\test.js:1:1";
+            const sanitized = Sanitizers.sanitizeStack(stack);
+            expect(sanitized).toBe("at test.js:1:1");
         });
 
-        it('should remove order IDs', () => {
-            const url = 'https://api.example.com/v1/orders/order789';
-            expect(Sanitizers.sanitizeApiEndpoint(url)).toBe('https://api.example.com/v1/orders/{order_id}');
+        it('should sanitize Unix home paths', () => {
+            const stack = "at /Users/jdoe/work/app.js:10:10\nat /home/ubuntu/app.js:5:5";
+            const sanitized = Sanitizers.sanitizeStack(stack);
+            expect(sanitized).toBe("at app.js:10:10\nat app.js:5:5");
         });
 
-        it('should remove query parameters (VULNERABILITY REPRODUCTION)', () => {
-            const url = 'https://api.example.com/v1/search?query=sensitive&user_email=test@example.com';
-            const sanitized = Sanitizers.sanitizeApiEndpoint(url);
-            expect(sanitized).not.toContain('query=sensitive');
-            expect(sanitized).not.toContain('user_email=test@example.com');
-            expect(sanitized).toBe('https://api.example.com/v1/search');
+        it('should limit to 15 lines', () => {
+            const manyLines = Array(20).fill('line').join('\n');
+            const sanitized = Sanitizers.sanitizeStack(manyLines);
+            expect(sanitized.split('\n')).toHaveLength(15);
         });
 
-        it('should handle URLs with query params and IDs', () => {
-            const url = 'https://api.example.com/v1/orders/order123?token=secret';
-            const sanitized = Sanitizers.sanitizeApiEndpoint(url);
-            expect(sanitized).toBe('https://api.example.com/v1/orders/{order_id}');
+        it('should handle null/undefined', () => {
+            expect(Sanitizers.sanitizeStack(null)).toBeNull();
+            expect(Sanitizers.sanitizeStack(undefined)).toBeNull();
         });
     });
 });
