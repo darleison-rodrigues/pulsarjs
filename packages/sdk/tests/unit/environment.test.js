@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { captureEnvironment } from '../../src/utils/environment.js';
+import { captureEnvironment, extractCampaigns } from '../../src/utils/environment.js';
 
 describe('captureEnvironment', () => {
     beforeEach(() => {
@@ -86,5 +86,59 @@ describe('captureEnvironment', () => {
         vi.stubGlobal('Intl', undefined);
         const env = captureEnvironment();
         expect(env.timezone).toBe('unknown');
+    });
+});
+
+describe('extractCampaigns', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('returns null when window.location.search is empty', () => {
+        vi.stubGlobal('window', { location: { search: '' } });
+        expect(extractCampaigns()).toBeNull();
+    });
+
+    it('returns null when window is not defined (throws error)', () => {
+        vi.stubGlobal('window', undefined);
+        expect(extractCampaigns()).toBeNull();
+    });
+
+    it('returns null when no campaign keys are present', () => {
+        vi.stubGlobal('window', { location: { search: '?other=123&test=abc' } });
+        expect(extractCampaigns()).toBeNull();
+    });
+
+    it('extracts valid campaign keys correctly', () => {
+        vi.stubGlobal('window', {
+            location: { search: '?utm_source=google&utm_medium=cpc&utm_campaign=summer_sale&gclid=12345&fbclid=abcde&msclkid=xyz' }
+        });
+        const campaigns = extractCampaigns();
+        expect(campaigns).toEqual({
+            utm_source: 'google',
+            utm_medium: 'cpc',
+            utm_campaign: 'summer_sale',
+            gclid: '12345',
+            fbclid: 'abcde',
+            msclkid: 'xyz'
+        });
+    });
+
+    it('ignores non-campaign keys', () => {
+        vi.stubGlobal('window', {
+            location: { search: '?utm_source=newsletter&ignore_me=true&another_param=123' }
+        });
+        const campaigns = extractCampaigns();
+        expect(campaigns).toEqual({
+            utm_source: 'newsletter'
+        });
+    });
+
+    it('handles malformed URL search strings gracefully', () => {
+        vi.stubGlobal('window', { location: { search: '?%malformed=string&utm_source=valid' } });
+        const campaigns = extractCampaigns();
+        expect(campaigns).toEqual({
+            utm_source: 'valid'
+        });
     });
 });
