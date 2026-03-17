@@ -40,8 +40,7 @@ describe('SDK Hardening - Defensive Coding', () => {
 
         const state = {
             config: { debug: false, endpointFilter: /.*/, commerceActions: [] },
-            capture: vi.fn(),
-            processedErrors: new WeakSet()
+            capture: vi.fn()
         };
 
         setupFetchInterceptor(state);
@@ -49,26 +48,6 @@ describe('SDK Hardening - Defensive Coding', () => {
         expect(typeof window.fetch).toBe('function');
         const res = await window.fetch('https://example.com/api/test', { method: 'POST', body: 'test' });
         expect(res.ok).toBe(true);
-        expect(mockFetch).toHaveBeenCalled();
-    });
-
-    it('should gracefully degrade if navigator.sendBeacon does not exist', async () => {
-        vi.stubGlobal('navigator', { sendBeacon: undefined });
-        const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-        vi.stubGlobal('fetch', mockFetch);
-
-        const state = {
-            config: { debug: false, endpoint: 'https://pulsar.test/ingest' },
-            sessionID: 'sess-1',
-            queue: [{ event_type: 'TEST_EVENT' }],
-            droppedSinceLastFlush: 0,
-            originalFetch: mockFetch
-        };
-
-        const pipeline = createCapturePipeline(state);
-
-        // Should not throw and should fallback to fetch
-        await pipeline.flush();
         expect(mockFetch).toHaveBeenCalled();
     });
 
@@ -130,6 +109,26 @@ describe('SDK Hardening - Defensive Coding', () => {
         const res = await window.fetch('https://example.com/api/test', { method: 'POST', body: 'test' });
         expect(res.ok).toBe(true);
         expect(originalFetch).toHaveBeenCalled();
+    });
+
+    it('should gracefully degrade if navigator.sendBeacon does not exist', async () => {
+        vi.stubGlobal('navigator', { sendBeacon: undefined });
+        const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+        vi.stubGlobal('fetch', mockFetch);
+
+        const state = {
+            config: { debug: false, endpoint: 'https://pulsar.test/ingest' },
+            sessionID: 'sess-1',
+            queue: [{ event_type: 'TEST_EVENT' }],
+            droppedSinceLastFlush: 0,
+            originalFetch: mockFetch
+        };
+
+        const pipeline = createCapturePipeline(state);
+
+        // Should not throw and should fallback to fetch
+        await pipeline.flush();
+        expect(mockFetch).toHaveBeenCalled();
     });
 
     it('should send original payload if beforeSend throws', async () => {

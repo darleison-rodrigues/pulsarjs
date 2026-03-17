@@ -211,14 +211,15 @@ export function createCapturePipeline(sharedState) {
         }
 
         // ── beforeSend hook ──────────────────────────────────────────────────
+        const originalPayload = { ...payload }; // Snapshot in case of hook error
         if (typeof state.config.beforeSend === 'function') {
             let timeoutId;
             try {
                 // ?? not || — callers may legitimately pass 0 to disable the timeout
                 const timeoutMs = state.config.beforeSendTimeout ?? 2000;
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('timeout')), timeoutMs)
-                );
+                const timeoutPromise = new Promise((_, reject) => {
+                    timeoutId = setTimeout(() => reject(new Error('timeout')), timeoutMs);
+                });
                 payload = await Promise.race([
                     Promise.resolve(state.config.beforeSend(payload)),
                     timeoutPromise
@@ -228,23 +229,25 @@ export function createCapturePipeline(sharedState) {
                     const ms = state.config.beforeSendTimeout ?? 2000;
                     // eslint-disable-next-line no-console
                     if (state.config.debug) console.warn(`[Pulsar] beforeSend timed out after ${ms}ms`);
+                    payload = originalPayload; // Fallback to original payload
                     if (state.config.allowUnconfirmedConsent) {
                         payload.metadata = payload.metadata || {};
                         payload.metadata.consent_unconfirmed = true;
                     } else {
                         if (state.config.debug) {
-                        // eslint-disable-next-line no-console
-                        console.log('[Pulsar] Event dropped due to strict consent fallback');
-                        return null;
-                    }
+                            // eslint-disable-next-line no-console
+                            console.log('[Pulsar] Event dropped due to strict consent fallback');
+                            return null;
+                        }
                         return null;
                     }
                 } else {
                     // eslint-disable-next-line no-console
                     if (state.config.debug) console.warn('[Pulsar] beforeSend hook threw an error', e);
+                    payload = originalPayload; // Fallback to original payload on throw
                 }
             } finally {
-                clearTimeout(timeoutId); // H3: Clear timeout to prevent leak
+                if (timeoutId) clearTimeout(timeoutId); // H3: Clear timeout to prevent leak
             }
         }
 

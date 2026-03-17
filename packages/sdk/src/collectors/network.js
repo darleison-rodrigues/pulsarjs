@@ -50,6 +50,7 @@ export function setupFetchInterceptor(state) {
         let bodySnippet = null;
         let startTime = Date.now();
 
+
         try {
             method = (args[1]?.method || 'GET').toUpperCase();
             if (args[1] && args[1].body && typeof args[1].body === 'string') {
@@ -57,6 +58,7 @@ export function setupFetchInterceptor(state) {
             }
             startTime = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
         } catch (e) {
+            if (config.debug) console.warn('[Pulsar] fetch pre-processing failed', e);
             if (config?.debug) console.warn('[Pulsar] fetch pre-processing failed', e);
         }
 
@@ -77,6 +79,7 @@ export function setupFetchInterceptor(state) {
                     state.processedErrors.add(error);
                 }
             } catch (e) {
+                if (config.debug) console.warn('[Pulsar] fetch error capture failed', e);
                 if (config?.debug) console.warn('[Pulsar] fetch error capture failed', e);
             }
             throw error;
