@@ -405,6 +405,7 @@ export function createCapturePipeline(sharedState) {
             product_refs: productSnapshot,
             dropped_events: state.droppedEventsCount
         };
+        state.productRefs = [];
         // ─────────────────────────────────────────────────────────────────────
 
         const endpoint = state.config.endpoint;

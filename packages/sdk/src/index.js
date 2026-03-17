@@ -9,7 +9,7 @@
  */
 import { Scope } from './core/scope.js';
 import { DEFAULT_CONFIG, validateConfig } from './core/config.js';
-import { generateSessionID } from './core/session.js';
+import { generateSessionID, getPersistedSession, persistSession } from './core/session.js';
 import { createCapturePipeline } from './core/capture.js';
 import { setupErrorHandlers } from './collectors/errors.js';
 import { setupFetchInterceptor, setupXHRInterceptor } from './collectors/network.js';
@@ -31,6 +31,12 @@ const Pulsar = (function () {
         let enabled = false;
         let isSampled = null;
 
+        // Load persisted session state if available
+        const persisted = getPersistedSession() || {};
+        if (persisted.sessionID) {
+            sessionID = persisted.sessionID;
+        }
+
         // Shared state object — passed to all collectors
         const state = {
             get config() { return config; },
@@ -39,8 +45,11 @@ const Pulsar = (function () {
             get enabled() { return enabled; },
             get isInitialized() { return isInitialized; },
             get droppedEventsCount() { return pipeline ? state._droppedEventsCount : 0; },
-            set droppedEventsCount(v) { state._droppedEventsCount = v; },
-            _droppedEventsCount: 0,
+            set droppedEventsCount(v) {
+                state._droppedEventsCount = v;
+                persistSession(state);
+            },
+            _droppedEventsCount: persisted._droppedEventsCount || 0,
             droppedSinceLastFlush: 0,
             firstDropTimestamp: null,
             firstDropUrl: null,  // URL captured at drop time (accurate in SPAs)
@@ -49,18 +58,46 @@ const Pulsar = (function () {
             productRefs: [], // PUL-030: PDP product identifiers for manifest
 
             // PUL-028: causal tracking for edge hints
-            lastErrorEventId: null,         // set by errors.js after JS_CRASH / UI_FAILURE
-            lastCommerceEventId: null,      // set by network.js after COMMERCE_ACTION
-            lastCommerceAction: null,       // { action: string, event_id: string }
-            lastFailedCommerceAction: {},   // { [action_type]: { event_id: string } }
-            firstPageViewEventId: null,     // set by navigation.js after first PAGE_VIEW
+            get lastErrorEventId() { return state._lastErrorEventId; },
+            set lastErrorEventId(v) { state._lastErrorEventId = v; persistSession(state); },
+            _lastErrorEventId: persisted.lastErrorEventId || null,
+
+            get lastCommerceEventId() { return state._lastCommerceEventId; },
+            set lastCommerceEventId(v) { state._lastCommerceEventId = v; persistSession(state); },
+            _lastCommerceEventId: persisted.lastCommerceEventId || null,
+
+            get lastCommerceAction() { return state._lastCommerceAction; },
+            set lastCommerceAction(v) { state._lastCommerceAction = v; persistSession(state); },
+            _lastCommerceAction: persisted.lastCommerceAction || null,
+
+            get lastFailedCommerceAction() { return state._lastFailedCommerceAction; },
+            set lastFailedCommerceAction(v) { state._lastFailedCommerceAction = v; persistSession(state); },
+            _lastFailedCommerceAction: persisted.lastFailedCommerceAction || {},
+
+            get firstPageViewEventId() { return state._firstPageViewEventId; },
+            set firstPageViewEventId(v) { state._firstPageViewEventId = v; persistSession(state); },
+            _firstPageViewEventId: persisted.firstPageViewEventId || null,
 
             // PUL-029: session context for flush envelope
-            sessionStartedAt: null,         // ISO timestamp, set at init
-            entryPageType: null,            // page type of first PAGE_VIEW
-            entryReferrerType: null,        // referrer type of first PAGE_VIEW
-            entryCampaignSource: null,      // utm_source or null, set by navigation.js
-            pageCount: 0,                   // incremented by navigation.js on each PAGE_VIEW
+            get sessionStartedAt() { return state._sessionStartedAt; },
+            set sessionStartedAt(v) { state._sessionStartedAt = v; persistSession(state); },
+            _sessionStartedAt: persisted.sessionStartedAt || null,
+
+            get entryPageType() { return state._entryPageType; },
+            set entryPageType(v) { state._entryPageType = v; persistSession(state); },
+            _entryPageType: persisted.entryPageType || null,
+
+            get entryReferrerType() { return state._entryReferrerType; },
+            set entryReferrerType(v) { state._entryReferrerType = v; persistSession(state); },
+            _entryReferrerType: persisted.entryReferrerType || null,
+
+            get entryCampaignSource() { return state._entryCampaignSource; },
+            set entryCampaignSource(v) { state._entryCampaignSource = v; persistSession(state); },
+            _entryCampaignSource: persisted.entryCampaignSource || null,
+
+            get pageCount() { return state._pageCount; },
+            set pageCount(v) { state._pageCount = v; persistSession(state); },
+            _pageCount: persisted.pageCount || 0,
 
             // Handler references for teardown (PUL-033: addEventListener pattern)
             originalFetch: null,
