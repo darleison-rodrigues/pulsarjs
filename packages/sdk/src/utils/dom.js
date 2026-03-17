@@ -13,6 +13,19 @@
  * @returns {HTMLScriptElement} The created script element
  */
 export function injectScript(state, src, attrs = {}) {
+    // Basic security validation to prevent DOM-based XSS
+    // Only allow absolute HTTPS URLs or relative paths (which will resolve to https if the page is https)
+    let parsedUrl;
+    try {
+        parsedUrl = new URL(src, 'https://localhost');
+    } catch (_e) {
+        throw new Error(`Invalid script source: ${src}`);
+    }
+
+    if (parsedUrl.protocol !== 'https:') {
+        throw new Error(`Insecure script source protocol: ${parsedUrl.protocol}`);
+    }
+
     const script = document.createElement('script');
     script.src = src;
 
