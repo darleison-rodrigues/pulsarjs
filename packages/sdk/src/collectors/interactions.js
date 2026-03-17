@@ -80,16 +80,28 @@ export function setupRageClickDetector(state) {
         const selector = getSelector(e.target);
 
         clicks.push({ selector, time: now });
-        clicks = clicks.filter(c => now - c.time < windowMs);
 
-        const sameTarget = clicks.filter(c => c.selector === selector);
-        if (sameTarget.length >= threshold) {
+        let sameTargetCount = 0;
+        let writeIndex = 0;
+
+        for (let i = 0; i < clicks.length; i++) {
+            const c = clicks[i];
+            if (now - c.time < windowMs) {
+                clicks[writeIndex++] = c;
+                if (c.selector === selector) {
+                    sameTargetCount++;
+                }
+            }
+        }
+        clicks.length = writeIndex;
+
+        if (sameTargetCount >= threshold) {
             state.capture({
                 event_type: 'RAGE_CLICK',
                 message: `Rage click: ${selector}`,
                 metadata: {
                     selector,
-                    click_count: sameTarget.length,
+                    click_count: sameTargetCount,
                     window_ms: windowMs
                 },
                 severity: 'warning',
