@@ -390,6 +390,8 @@ export function createCapturePipeline(sharedState) {
         // regardless of this flush's outcome.
         const snapshot = [...state.queue];
         state.queue = [];
+        const productSnapshot = [...(state.productRefs || [])];
+        state.productRefs = [];
 
         const { session, manifest } = buildEnvelopeContext(snapshot, state);
         const batch = {
@@ -400,7 +402,7 @@ export function createCapturePipeline(sharedState) {
             session,
             manifest,
             events: snapshot,
-            product_refs: [...(state.productRefs || [])],
+            product_refs: productSnapshot,
             dropped_events: state.droppedEventsCount
         };
         // ─────────────────────────────────────────────────────────────────────
