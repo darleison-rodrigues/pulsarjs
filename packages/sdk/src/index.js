@@ -143,6 +143,7 @@ const Pulsar = (function () {
         // Public API
         return {
             init: function (usrConfig = {}) {
+                try {
                 const initializer = () => {
                     if (isInitialized) return;
 
@@ -171,10 +172,15 @@ const Pulsar = (function () {
 
                     // Bind extractPlatformContext with resolved provider
                     state.extractPlatformContext = () => {
-                        const ctx = provider.extractContext();
-                        const campaign = extractCampaigns();
-                        if (campaign) ctx.campaign = campaign;
-                        return ctx;
+                        try {
+                            const ctx = provider.extractContext();
+                            const campaign = extractCampaigns();
+                            if (campaign) ctx.campaign = campaign;
+                            return ctx;
+                        } catch (e) {
+                            if (config.debug) console.warn('[Pulsar] extractPlatformContext failed', e);
+                            return {};
+                        }
                     };
 
                     if (!sessionID) sessionID = generateSessionID();
@@ -191,117 +197,165 @@ const Pulsar = (function () {
                     state.device = buildDeviceInfo();
 
                     // Error & performance collectors
-                    setupPerformanceObserver(state);
-                    setupErrorHandlers(state);
-                    setupFetchInterceptor(state);
-                    setupXHRInterceptor(state);
+                    try { setupPerformanceObserver(state); } catch (e) { if (config.debug) console.warn('[Pulsar] setupPerformanceObserver failed', e); }
+                    try { setupErrorHandlers(state); } catch (e) { if (config.debug) console.warn('[Pulsar] setupErrorHandlers failed', e); }
+                    try { setupFetchInterceptor(state); } catch (e) { if (config.debug) console.warn('[Pulsar] setupFetchInterceptor failed', e); }
+                    try { setupXHRInterceptor(state); } catch (e) { if (config.debug) console.warn('[Pulsar] setupXHRInterceptor failed', e); }
 
                     // Journey event collectors
-                    setupNavigationTracking(state);
-                    setupScrollObserver(state);
-                    setupRageClickDetector(state);
+                    try { setupNavigationTracking(state); } catch (e) { if (config.debug) console.warn('[Pulsar] setupNavigationTracking failed', e); }
+                    try { setupScrollObserver(state); } catch (e) { if (config.debug) console.warn('[Pulsar] setupScrollObserver failed', e); }
+                    try { setupRageClickDetector(state); } catch (e) { if (config.debug) console.warn('[Pulsar] setupRageClickDetector failed', e); }
 
                     // Flush RUM + queue on page hide
-                    state.visibilityHandler = () => {
-                        if (document.visibilityState === 'hidden') {
-                            captureRUM(state);
-                            // flushOnHide bypasses the isFlushing concurrency guard.
-                            // This is intentional: on page hide, events sitting in
-                            // state.queue may have no scheduled flush (the debounce
-                            // already fired, isFlushing is true from a slow retry).
-                            // sendBeacon is fire-and-forget; we MUST call it here.
-                            pipeline.flushOnHide();
-                        }
-                    };
-                    document.addEventListener('visibilitychange', state.visibilityHandler);
+                    try {
+                        state.visibilityHandler = () => {
+                            try {
+                                if (document.visibilityState === 'hidden') {
+                                    captureRUM(state);
+                                    // flushOnHide bypasses the isFlushing concurrency guard.
+                                    // This is intentional: on page hide, events sitting in
+                                    // state.queue may have no scheduled flush (the debounce
+                                    // already fired, isFlushing is true from a slow retry).
+                                    // sendBeacon is fire-and-forget; we MUST call it here.
+                                    pipeline.flushOnHide();
+                                }
+                            } catch (e) {
+                                if (config.debug) console.warn('[Pulsar] visibilityHandler failed', e);
+                            }
+                        };
+                        document.addEventListener('visibilitychange', state.visibilityHandler);
+                    } catch (e) {
+                        if (config.debug) console.warn('[Pulsar] visibility listener setup failed', e);
+                    }
 
                     isInitialized = true;
                     // eslint-disable-next-line no-console
                     if (config.debug) console.log('[Pulsar] Initialized', config.clientId);
                 };
 
-                if (window.requestIdleCallback) window.requestIdleCallback(initializer);
-                else setTimeout(initializer, 1);
+                try {
+                    if (window.requestIdleCallback) window.requestIdleCallback(initializer);
+                    else setTimeout(initializer, 1);
+                } catch (e) {
+                    if (config.debug) console.warn('[Pulsar] Init delay failed', e);
+                    initializer();
+                }
+                } catch (e) {
+                    // eslint-disable-next-line no-console
+                    if (config?.debug) console.warn('[Pulsar] init failed', e);
+                }
             },
 
             enable: function () {
-                if (isSampled === null) isSampled = Math.random() <= config.sampleRate;
-                if (!isSampled) {
-                    // eslint-disable-next-line no-console
-                    if (config.debug) console.log('[Pulsar] Session excluded by sampling');
-                    return;
+                try {
+                    if (isSampled === null) isSampled = Math.random() <= config.sampleRate;
+                    if (!isSampled) {
+                        // eslint-disable-next-line no-console
+                        if (config.debug) console.log('[Pulsar] Session excluded by sampling');
+                        return;
+                    }
+                    enabled = true;
+                } catch (e) {
+                    if (config.debug) console.warn('[Pulsar] enable failed', e);
                 }
-                enabled = true;
             },
 
             disable: function () {
-                enabled = false;
+                try {
+                    enabled = false;
 
-                // Restore patched globals
-                if (state.originalFetch) { window.fetch = state.originalFetch; state.originalFetch = null; }
-                if (state.originalXhrOpen && window.XMLHttpRequest) {
-                    XMLHttpRequest.prototype.open = state.originalXhrOpen;
-                    XMLHttpRequest.prototype.send = state.originalXhrSend;
-                    state.originalXhrOpen = null;
-                    state.originalXhrSend = null;
+                    // Restore patched globals
+                    if (state.originalFetch) { window.fetch = state.originalFetch; state.originalFetch = null; }
+                    if (state.originalXhrOpen && window.XMLHttpRequest) {
+                        XMLHttpRequest.prototype.open = state.originalXhrOpen;
+                        XMLHttpRequest.prototype.send = state.originalXhrSend;
+                        state.originalXhrOpen = null;
+                        state.originalXhrSend = null;
+                    }
+                    // PUL-033: removeEventListener — symmetric with addEventListener in errors.js
+                    if (state.errorHandler) { window.removeEventListener('error', state.errorHandler); state.errorHandler = null; }
+                    if (state.rejectionHandler) { window.removeEventListener('unhandledrejection', state.rejectionHandler); state.rejectionHandler = null; }
+                    if (state.mutationObserver) { state.mutationObserver.disconnect(); state.mutationObserver = null; }
+                    if (state.visibilityHandler) { document.removeEventListener('visibilitychange', state.visibilityHandler); state.visibilityHandler = null; }
+                    if (state.interactionHandler) { document.body.removeEventListener('click', state.interactionHandler, true); state.interactionHandler = null; }
+                    // PUL-034: restore history methods and remove popstate listener
+                    if (state.originalPushState) { history.pushState = state.originalPushState; state.originalPushState = null; }
+                    if (state.originalReplaceState) { history.replaceState = state.originalReplaceState; state.originalReplaceState = null; }
+                    if (state.spaNavigationHandler) { window.removeEventListener('popstate', state.spaNavigationHandler); state.spaNavigationHandler = null; }
+
+                    // Teardown navigation tracking
+                    if (state._navOriginalPushState) { history.pushState = state._navOriginalPushState; state._navOriginalPushState = null; }
+                    if (state._navOriginalReplaceState) { history.replaceState = state._navOriginalReplaceState; state._navOriginalReplaceState = null; }
+                    if (state._navPopstateHandler) { window.removeEventListener('popstate', state._navPopstateHandler); state._navPopstateHandler = null; }
+                    if (state._navVisibilityHandler) { document.removeEventListener('visibilitychange', state._navVisibilityHandler); state._navVisibilityHandler = null; }
+
+                    // Teardown interaction tracking
+                    if (state._scrollHandler) { window.removeEventListener('scroll', state._scrollHandler); state._scrollHandler = null; }
+                    if (state._rageClickHandler) { document.removeEventListener('click', state._rageClickHandler, true); state._rageClickHandler = null; }
+
+                    isInitialized = false;
+                    // eslint-disable-next-line no-console
+                    if (config.debug) console.log('[Pulsar] Disabled');
+                } catch (e) {
+                    if (config.debug) console.warn('[Pulsar] disable failed', e);
                 }
-                // PUL-033: removeEventListener — symmetric with addEventListener in errors.js
-                if (state.errorHandler) { window.removeEventListener('error', state.errorHandler); state.errorHandler = null; }
-                if (state.rejectionHandler) { window.removeEventListener('unhandledrejection', state.rejectionHandler); state.rejectionHandler = null; }
-                if (state.mutationObserver) { state.mutationObserver.disconnect(); state.mutationObserver = null; }
-                if (state.visibilityHandler) { document.removeEventListener('visibilitychange', state.visibilityHandler); state.visibilityHandler = null; }
-                if (state.interactionHandler) { document.body.removeEventListener('click', state.interactionHandler, true); state.interactionHandler = null; }
-                // PUL-034: restore history methods and remove popstate listener
-                if (state.originalPushState) { history.pushState = state.originalPushState; state.originalPushState = null; }
-                if (state.originalReplaceState) { history.replaceState = state.originalReplaceState; state.originalReplaceState = null; }
-                if (state.spaNavigationHandler) { window.removeEventListener('popstate', state.spaNavigationHandler); state.spaNavigationHandler = null; }
-
-                // Teardown navigation tracking
-                if (state._navOriginalPushState) { history.pushState = state._navOriginalPushState; state._navOriginalPushState = null; }
-                if (state._navOriginalReplaceState) { history.replaceState = state._navOriginalReplaceState; state._navOriginalReplaceState = null; }
-                if (state._navPopstateHandler) { window.removeEventListener('popstate', state._navPopstateHandler); state._navPopstateHandler = null; }
-                if (state._navVisibilityHandler) { document.removeEventListener('visibilitychange', state._navVisibilityHandler); state._navVisibilityHandler = null; }
-
-                // Teardown interaction tracking
-                if (state._scrollHandler) { window.removeEventListener('scroll', state._scrollHandler); state._scrollHandler = null; }
-                if (state._rageClickHandler) { document.removeEventListener('click', state._rageClickHandler, true); state._rageClickHandler = null; }
-
-                isInitialized = false;
-                // eslint-disable-next-line no-console
-                if (config.debug) console.log('[Pulsar] Disabled');
             },
 
             getScope: function () { return globalScope; },
-            setTag: function (key, value) { globalScope.setTag(key, value); },
+            setTag: function (key, value) {
+                try {
+                    globalScope.setTag(key, value);
+                } catch (e) {
+                    if (config.debug) console.warn('[Pulsar] setTag failed', e);
+                }
+            },
             setUser: function (id, email, metadata = {}) {
-                globalScope.setUser({ id, email, ...metadata });
+                try {
+                    globalScope.setUser({ id, email, ...metadata });
+                } catch (e) {
+                    if (config.debug) console.warn('[Pulsar] setUser failed', e);
+                }
             },
             addBreadcrumb: function (category, message, level = 'info') {
-                globalScope.addBreadcrumb({ category, message, level });
+                try {
+                    globalScope.addBreadcrumb({ category, message, level });
+                } catch (e) {
+                    if (config.debug) console.warn('[Pulsar] addBreadcrumb failed', e);
+                }
             },
 
             /**
              * Session context snapshot — useful for debugging and custom integrations.
              */
             getContext: function () {
-                const scopeData = globalScope.getScopeData();
-                return {
-                    tags: scopeData.tags,
-                    user: scopeData.user,
-                    sessionID: sessionID,
-                    config: { clientId: config.clientId, siteId: config.siteId, storefrontType: config.storefrontType }
-                };
+                try {
+                    const scopeData = globalScope.getScopeData();
+                    return {
+                        tags: scopeData.tags,
+                        user: scopeData.user,
+                        sessionID: sessionID,
+                        config: { clientId: config.clientId, siteId: config.siteId, storefrontType: config.storefrontType }
+                    };
+                } catch (e) {
+                    if (config.debug) console.warn('[Pulsar] getContext failed', e);
+                    return {};
+                }
             },
 
             captureException: function (error, metadata = {}) {
-                pipeline.capture({
-                    event_type: "CUSTOM_EXCEPTION",
-                    message: error.message || String(error),
-                    response_snippet: error.stack || null,
-                    severity: "error",
-                    metadata: metadata,
-                    is_blocking: false
-                });
+                try {
+                    pipeline.capture({
+                        event_type: "CUSTOM_EXCEPTION",
+                        message: error.message || String(error),
+                        response_snippet: error.stack || null,
+                        severity: "error",
+                        metadata: metadata,
+                        is_blocking: false
+                    });
+                } catch (e) {
+                    if (config.debug) console.warn('[Pulsar] captureException failed', e);
+                }
             },
 
             /**
@@ -314,7 +368,12 @@ const Pulsar = (function () {
              * @returns {Promise<void>}
              */
             flush: function () {
-                return pipeline.flush();
+                try {
+                    return pipeline.flush();
+                } catch (e) {
+                    if (config.debug) console.warn('[Pulsar] flush failed', e);
+                    return Promise.resolve();
+                }
             }
         };
     }
