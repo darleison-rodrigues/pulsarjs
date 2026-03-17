@@ -14,33 +14,41 @@ export function setupScrollObserver(state) {
     let ticking = false;
 
     const check = () => {
-        ticking = false;
-        const docEl = document.documentElement;
-        const scrollTop = docEl.scrollTop || document.body.scrollTop;
-        const scrollHeight = docEl.scrollHeight - docEl.clientHeight;
+        try {
+            ticking = false;
+            const docEl = document.documentElement;
+            const scrollTop = docEl.scrollTop || document.body.scrollTop;
+            const scrollHeight = docEl.scrollHeight - docEl.clientHeight;
 
-        if (scrollHeight <= 0) {
-            // Page fits in viewport — user sees 100% immediately
-            if (!reached.has(100)) {
-                reached.add(100);
-                emitScroll(state, 100);
+            if (scrollHeight <= 0) {
+                // Page fits in viewport — user sees 100% immediately
+                if (!reached.has(100)) {
+                    reached.add(100);
+                    emitScroll(state, 100);
+                }
+                return;
             }
-            return;
-        }
 
-        const percent = Math.round((scrollTop / scrollHeight) * 100);
-        for (const m of milestones) {
-            if (percent >= m && !reached.has(m)) {
-                reached.add(m);
-                emitScroll(state, m);
+            const percent = Math.round((scrollTop / scrollHeight) * 100);
+            for (const m of milestones) {
+                if (percent >= m && !reached.has(m)) {
+                    reached.add(m);
+                    emitScroll(state, m);
+                }
             }
+        } catch (e) {
+            if (state.config?.debug) console.warn('[Pulsar] scroll depth check failed', e);
         }
     };
 
     const onScroll = () => {
-        if (!ticking) {
-            ticking = true;
-            requestAnimationFrame(check);
+        try {
+            if (!ticking) {
+                ticking = true;
+                requestAnimationFrame(check);
+            }
+        } catch (e) {
+            if (state.config?.debug) console.warn('[Pulsar] onScroll failed', e);
         }
     };
 
@@ -74,43 +82,47 @@ export function setupRageClickDetector(state) {
     let clicks = [];
 
     const handler = (e) => {
-        if (!e.target || e.target === document) return;
+        try {
+            if (!e.target || e.target === document) return;
 
-        const now = Date.now();
-        const selector = getSelector(e.target);
+            const now = Date.now();
+            const selector = getSelector(e.target);
 
-        clicks.push({ selector, time: now });
+            clicks.push({ selector, time: now });
 
-        let sameTargetCount = 0;
-        let writeIndex = 0;
+            let sameTargetCount = 0;
+            let writeIndex = 0;
 
-        for (let i = 0; i < clicks.length; i++) {
-            const c = clicks[i];
-            if (now - c.time < windowMs) {
-                clicks[writeIndex++] = c;
-                if (c.selector === selector) {
-                    sameTargetCount++;
+            for (let i = 0; i < clicks.length; i++) {
+                const c = clicks[i];
+                if (now - c.time < windowMs) {
+                    clicks[writeIndex++] = c;
+                    if (c.selector === selector) {
+                        sameTargetCount++;
+                    }
                 }
             }
-        }
-        clicks.length = writeIndex;
+            clicks.length = writeIndex;
 
-        if (sameTargetCount >= threshold) {
-            state.capture({
-                event_type: 'RAGE_CLICK',
-                message: `Rage click: ${selector}`,
-                metadata: {
-                    selector,
-                    click_count: sameTargetCount,
-                    window_ms: windowMs
-                },
-                severity: 'warning',
-                is_blocking: false,
-                ...(state.lastErrorEventId
-                    ? { caused_by: state.lastErrorEventId, edge_hint: 'frustrated_by' }
-                    : {})
-            });
-            clicks = [];
+            if (sameTargetCount >= threshold) {
+                state.capture({
+                    event_type: 'RAGE_CLICK',
+                    message: `Rage click: ${selector}`,
+                    metadata: {
+                        selector,
+                        click_count: sameTargetCount,
+                        window_ms: windowMs
+                    },
+                    severity: 'warning',
+                    is_blocking: false,
+                    ...(state.lastErrorEventId
+                        ? { caused_by: state.lastErrorEventId, edge_hint: 'frustrated_by' }
+                        : {})
+                });
+                clicks = [];
+            }
+        } catch (err) {
+            if (state.config?.debug) console.warn('[Pulsar] rage click handler failed', err);
         }
     };
 

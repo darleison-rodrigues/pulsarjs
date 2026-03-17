@@ -78,6 +78,7 @@ export function setupFetchInterceptor(state) {
                 }
             } catch (e) {
                 if (config.debug) console.warn('[Pulsar] fetch error capture failed', e);
+                if (config?.debug) console.warn('[Pulsar] fetch error capture failed', e);
             }
             throw error;
         }
@@ -142,7 +143,7 @@ export function setupFetchInterceptor(state) {
                 }
             }
         } catch (e) {
-            if (config.debug) console.warn('[Pulsar] fetch post-processing failed', e);
+            if (config?.debug) console.warn('[Pulsar] fetch post-processing failed', e);
         }
 
         return response;
