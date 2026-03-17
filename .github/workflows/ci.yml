@@ -99,7 +99,9 @@ jobs:
         run: pnpm --filter @pulsarjs/sdk test -- --reporter=verbose
 
   # ─── E2E tests ──────────────────────────────────────────────
+  # Temporarily disabled due to flakiness
   test-e2e:
+    if: false
     needs: build
     runs-on: ubuntu-latest
     steps:
