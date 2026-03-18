@@ -1,6 +1,6 @@
-# CLAUDE.md — PulsarJS SDK
+# PulsarJS Architecture & Internal Guide
 
-> AI assistant instructions for building PulsarJS: a privacy-first, causality-aware commerce instrumentation SDK.
+> Internal developer guide and instructions for building PulsarJS: a privacy-first, causality-aware commerce instrumentation SDK.
 
 ---
 
@@ -118,39 +118,33 @@ const renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL); // never send thi
 
 ---
 
-## Repository Structure (Actual)
+## Repository Structure
 
 ```
 pulsarjs/
 ├── packages/
-│   ├── sdk/                         # Core browser SDK
-│   │   ├── src/
-│   │   │   ├── index.js             # Public API surface + IIFE wrapper + createInstance factory
-│   │   │   ├── core/
-│   │   │   │   ├── capture.js       # Capture pipeline: queue, dedup, debounced flush, retry, beforeSend
-│   │   │   │   ├── config.js        # Config defaults + validateConfig()
-│   │   │   │   ├── scope.js         # Scope class (breadcrumbs, tags, user)
-│   │   │   │   └── session.js       # Session ID generation (crypto.randomUUID only)
-│   │   │   ├── collectors/
-│   │   │   │   ├── errors.js        # onerror, onunhandledrejection, MutationObserver (debounced)
-│   │   │   │   ├── network.js       # fetch + XHR interceptors, COMMERCE_ACTION detection
-│   │   │   │   ├── rum.js           # PerformanceObserver: LCP, INP, CLS, TTFB
-│   │   │   │   ├── navigation.js    # PAGE_VIEW, SPA routing, CAMPAIGN_ENTRY, TAB_VISIBILITY
-│   │   │   │   └── interactions.js  # SCROLL_DEPTH milestones, RAGE_CLICK detection
-│   │   │   ├── integrations/
-│   │   │   │   └── sfcc.js          # SFCC context extraction (dwsid, dwac_*, page type)
-│   │   │   └── utils/
-│   │   │       ├── sanitizers.js    # PII redaction, URL sanitization, API endpoint sanitization
-│   │   │       └── environment.js   # Screen, timezone, time_since_load, campaign extraction
-│   │   ├── tests/
-│   │   └── package.json
-│   └── agent/                       # DEPRECATED — retired, all capabilities moved to SDK collectors
-├── docs/
-│   ├── PULSAR_SDK.md                # This file
-│   └── API.md                       # Full API reference
-├── PULSAR_SERVE.md                  # Server architecture spec
-├── PULSAR_INVESTOR_OVERVIEW.md      # Investor-facing scenarios + channel taxonomy
-├── API.md                           # Ingest endpoint quick reference
+│   └── sdk/                         # Core browser SDK
+│       ├── src/
+│       │   ├── index.js             # Public API surface + IIFE wrapper + createInstance factory
+│       │   ├── core/
+│       │   │   ├── capture.js       # Capture pipeline: queue, dedup, debounced flush, retry, beforeSend
+│       │   │   ├── config.js        # Config defaults + validateConfig()
+│       │   │   ├── scope.js         # Scope class (breadcrumbs, tags, user)
+│       │   │   └── session.js       # Session ID generation (crypto.randomUUID only)
+│       │   ├── collectors/
+│       │   │   ├── errors.js        # onerror, onunhandledrejection, MutationObserver (debounced)
+│       │   │   ├── network.js       # fetch + XHR interceptors, COMMERCE_ACTION detection
+│       │   │   ├── rum.js           # PerformanceObserver: LCP, INP, CLS, TTFB
+│       │   │   ├── navigation.js    # PAGE_VIEW, SPA routing, CAMPAIGN_ENTRY, TAB_VISIBILITY
+│       │   │   └── interactions.js  # SCROLL_DEPTH milestones, RAGE_CLICK detection
+│       │   ├── providers/
+│       │   │   └── sfcc.js          # SFCC context extraction (dwsid, dwac_*, page type)
+│       │   └── utils/
+│       │       ├── sanitizers.js    # PII redaction, URL sanitization, API endpoint sanitization
+│       │       └── environment.js   # Screen, timezone, time_since_load, campaign extraction
+│       ├── tests/
+│       └── package.json
+├── docs/                            # Internal and public documentation
 └── README.md
 ```
 
@@ -321,74 +315,6 @@ The taxonomy classifies the **entry point**. The ontology connects the **full jo
 
 The SDK's job is to emit high-fidelity nodes with raw attribution params. The server's job is to apply the taxonomy, infer the edges, and answer these cross-cutting questions.
 
----
-
-## Known Issues (Priority Order)
-
-Status reflects the actual codebase as of 2026-03-13.
-
-### P0 — Critical
-
-1. **~~INP missing~~ DONE**
-   - INP implemented via `PerformanceObserver` type `event` with `durationThreshold: 40`.
-   - FID fallback for older browsers.
-   - File: `collectors/rum.js:32-48`
-
-2. **~~Event loss on queue overflow~~ DONE**
-   - `QUEUE_OVERFLOW` synthetic event emitted on flush with `dropped_count` and `first_drop_time`.
-   - File: `core/capture.js:144-161`
-
-3. **~~Turnstile dependency~~ REMOVED**
-   - Session handshake removed entirely. No Turnstile, no `/v1/session` endpoint.
-   - Session ID generated locally via `crypto.randomUUID()`.
-   - File: `core/session.js`
-
-### P1 — High
-
-4. **~~`beforeSend` async support~~ DONE**
-   - `beforeSend` is now async with `Promise.race` timeout (configurable `beforeSendTimeout`, default 2000ms).
-   - `allowUnconfirmedConsent` config for timeout fallback behavior.
-   - File: `core/capture.js:87-113`
-
-5. **~~CSP nonce support~~ DONE**
-   - `nonce` accepted in config. No dynamic scripts injected (Turnstile removed), so this is future-proofing.
-   - File: `core/config.js:18`
-
-6. **~~Global scope not isolation-safe~~ DONE**
-   - `createInstance(config)` factory export added alongside default singleton.
-   - File: `index.js:208-213`
-
-7. **~~No retry logic on flush~~ DONE**
-   - Exponential backoff: 3 retries (500ms, 1500ms). `sendBeacon` first, `fetch` fallback.
-   - `FLUSH_FAILED` event emitted after all retries exhausted (with `bypassFlush` to prevent recursion).
-   - File: `core/capture.js:187-226`
-
-### P2 — Medium
-
-8. **Source map upload tooling missing** — NOT STARTED
-   - Without source maps, crash stack traces in production are unreadable.
-   - Need: `packages/cli/` with `pulsarjs upload-sourcemaps` command.
-   - Priority: After POC server is functional.
-
-9. **~~`sendBeacon` blob type~~ CONFIRMED CORRECT**
-   - Uses `text/plain` via `Blob`. Avoids CORS preflight.
-   - Server parses body regardless of content-type.
-   - File: `core/capture.js:192`
-
-10. **~~MutationObserver debounce~~ DONE**
-    - 100ms `setTimeout` debounce on mutation buffer.
-    - File: `collectors/errors.js:42-74`
-
-### P3 — From SOC2 audit
-
-11. **~~HMAC signing in capture.js flush~~ DONE**
-    - No HMAC code exists in the SDK. Removed during causal stream refactor.
-    - Server uses origin validation + `X-Pulsar-Client-Id` header.
-
-12. **~~SECURITY.md version numbers~~ DONE**
-    - Version table correctly shows `1.0.x`. Email `security@pulsarjs.com` is intentional.
-
----
 
 ## Architecture Principles
 
@@ -568,30 +494,6 @@ afterEach(() => { window.fetch = originalFetch; Pulsar.disable(); });
 
 ---
 
-## What Claude Should NOT Do
-
-**Code quality:**
-- Do not add npm runtime dependencies to the SDK bundle
-- Do not use `Math.random()` for any ID generation
-- Do not log anything to the console unless `config.debug === true`
-- Do not catch errors silently without incrementing a diagnostic counter
-- Do not write `any` TypeScript types — use strict types or JSDoc
-- Do not use `document.write()` or synchronous script injection
-- Do not expand the public API surface without updating this file
-- Do not use `localStorage` or `sessionStorage` for queue persistence (privacy + ITP issues)
-- Do not flush per-event — always use the debounced timer (2s)
-- Do not add event-to-event edge inference in the SDK — edges are server-side only
-
-**Privacy & compliance:**
-- Do not include `dwsid`, `visitorId`, or `customerId` in aggregate payloads or metrics
-- Do not store or transmit raw WebGL renderer strings — classify into cohort labels only
-- Do not generate persistent cross-session device identifiers of any kind
-- Do not store full IP addresses — truncation is enforced at the ingest layer
-- Do not repurpose event data across merchants or for any purpose beyond serving the merchant that collected it
-- Do not store raw PII in the queue, even temporarily — redact at capture time
-- Do not store click ID values (gclid, fbclid, etc.) beyond the CAMPAIGN_ENTRY event — they are one-time attribution signals
-
----
 
 ## Useful References
 
