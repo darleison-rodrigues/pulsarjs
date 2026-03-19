@@ -55,7 +55,16 @@ export const Sanitizers = {
     sanitizeStack(stack) {
         if (!stack) return null;
         const v = String(stack);
-        let cleaned = v.split('\n').slice(0, 15).join('\n');
+
+        let count = 0;
+        let idx = -1;
+        while (count < 15) {
+            idx = v.indexOf('\n', idx + 1);
+            if (idx === -1) break;
+            count++;
+        }
+
+        let cleaned = idx !== -1 ? v.substring(0, idx) : v;
 
         cleaned = cleaned.replace(/@https?:\/\/[^\/]+\//g, '@');
         cleaned = cleaned.replace(/@file:\/\/.*\//g, '@');
