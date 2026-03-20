@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import Pulsar from '../../src/index.js';
-import { setupFetchInterceptor, setupXHRInterceptor } from '../../src/collectors/network.js';
+import { setupFetchInterceptor } from '../../src/collectors/network.js';
 import { setupErrorHandlers } from '../../src/collectors/errors.js';
 import { createCapturePipeline } from '../../src/core/capture.js';
 
@@ -149,7 +149,6 @@ describe('SDK Hardening - Defensive Coding', () => {
     });
 
     it('should send original payload if beforeSend throws', async () => {
-        const mockCapture = vi.fn();
         const state = {
             enabled: true,
             isInitialized: true,

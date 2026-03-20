@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GitHub Discussions
+    url: https://github.com/pulsarjs/pulsarjs/discussions
+    about: Ask questions, share ideas, and engage with the PulsarJS community.
+  - name: PulsarJS Documentation
+    url: https://github.com/pulsarjs/pulsarjs/tree/main/docs
+    about: Need help? Read the docs for API reference, providers, and setup guides.
