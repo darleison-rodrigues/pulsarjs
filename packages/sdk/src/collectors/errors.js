@@ -26,38 +26,30 @@ export function setupErrorHandlers(state) {
     // The old window.onerror = assignment was a single slot — anything running
     // after Pulsar (GTM tags, third-party widgets) would overwrite it silently.
     state.errorHandler = async function (event) {
-        try {
-            // Skip resource-load errors (img, script, link) — they have no stack
-            // and fire on the same 'error' event type but with no event.message.
-            if (!event.message) return;
-            const eventId = await capture({
-                event_type: 'JS_CRASH',
-                message: event.message,
-                response_snippet: event.error ? event.error.stack : `${event.filename}:${event.lineno}:${event.colno}`,
-                severity: 'error',
-                is_blocking: true
-            });
-            if (eventId) state.lastErrorEventId = eventId;
-        } catch (e) {
-            if (config?.debug) console.warn('[Pulsar] errorHandler failed', e);
-        }
+        // Skip resource-load errors (img, script, link) — they have no stack
+        // and fire on the same 'error' event type but with no event.message.
+        if (!event.message) return;
+        const eventId = await capture({
+            event_type: 'JS_CRASH',
+            message: event.message,
+            response_snippet: event.error ? event.error.stack : `${event.filename}:${event.lineno}:${event.colno}`,
+            severity: 'error',
+            is_blocking: true
+        });
+        if (eventId) state.lastErrorEventId = eventId;
     };
     window.addEventListener('error', state.errorHandler);
 
     // ── JS_CRASH: unhandled promise rejections ──────────────────────────────
     state.rejectionHandler = async function (event) {
-        try {
-            const eventId = await capture({
-                event_type: 'JS_CRASH',
-                message: event.reason ? event.reason.toString() : 'Unhandled Promise Rejection',
-                response_snippet: event.reason && event.reason.stack ? event.reason.stack : null,
-                severity: 'error',
-                is_blocking: false
-            });
-            if (eventId) state.lastErrorEventId = eventId;
-        } catch (e) {
-            if (config?.debug) console.warn('[Pulsar] rejectionHandler failed', e);
-        }
+        const eventId = await capture({
+            event_type: 'JS_CRASH',
+            message: event.reason ? event.reason.toString() : 'Unhandled Promise Rejection',
+            response_snippet: event.reason && event.reason.stack ? event.reason.stack : null,
+            severity: 'error',
+            is_blocking: false
+        });
+        if (eventId) state.lastErrorEventId = eventId;
     };
     window.addEventListener('unhandledrejection', state.rejectionHandler);
 
@@ -69,46 +61,38 @@ export function setupErrorHandlers(state) {
         let mutationTimeout = null;
 
         const processMutations = async () => {
-            try {
-                const nodesToProcess = mutationBuffer;
-                mutationBuffer = [];
-                mutationTimeout = null;
+            const nodesToProcess = mutationBuffer;
+            mutationBuffer = [];
+            mutationTimeout = null;
 
-                for (const node of nodesToProcess) {
-                    for (const selector of config.criticalSelectors) {
-                        if (
-                            (node.matches && node.matches(selector)) ||
-                            (node.querySelector && node.querySelector(selector))
-                        ) {
-                            const eventId = await capture({
-                                event_type: 'UI_FAILURE',
-                                message: `Critical error UI rendered: ${selector}`,
-                                severity: 'warning',
-                                is_blocking: false
-                            });
-                            if (eventId) state.lastErrorEventId = eventId;
-                        }
+            for (const node of nodesToProcess) {
+                for (const selector of config.criticalSelectors) {
+                    if (
+                        (node.matches && node.matches(selector)) ||
+                        (node.querySelector && node.querySelector(selector))
+                    ) {
+                        const eventId = await capture({
+                            event_type: 'UI_FAILURE',
+                            message: `Critical error UI rendered: ${selector}`,
+                            severity: 'warning',
+                            is_blocking: false
+                        });
+                        if (eventId) state.lastErrorEventId = eventId;
                     }
                 }
-            } catch (e) {
-                if (config?.debug) console.warn('[Pulsar] processMutations failed', e);
             }
         };
 
         state.mutationObserver = new MutationObserver((mutations) => {
-            try {
-                for (const mutation of mutations) {
-                    if (mutation.type === 'childList') {
-                        mutation.addedNodes.forEach(node => {
-                            if (node.nodeType === 1) mutationBuffer.push(node);
-                        });
-                    }
+            for (const mutation of mutations) {
+                if (mutation.type === 'childList') {
+                    mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === 1) mutationBuffer.push(node);
+                    });
                 }
-                if (mutationBuffer.length > 0 && !mutationTimeout) {
-                    mutationTimeout = setTimeout(processMutations, 100);
-                }
-            } catch (e) {
-                if (config?.debug) console.warn('[Pulsar] MutationObserver callback failed', e);
+            }
+            if (mutationBuffer.length > 0 && !mutationTimeout) {
+                mutationTimeout = setTimeout(processMutations, 100);
             }
         });
         state.mutationObserver.observe(document.body, { childList: true, subtree: true });
@@ -116,26 +100,19 @@ export function setupErrorHandlers(state) {
 
     // ── Click breadcrumbs ────────────────────────────────────────────────────
     state.interactionHandler = function (e) {
-        try {
-            if (!e.target || e.target === document) return;
-            const tag = e.target.tagName ? e.target.tagName.toLowerCase() : 'unknown';
-            const id = e.target.id ? `#${e.target.id}` : '';
-            // PUL-037 (hardening): className will be stripped here to avoid
-            // capturing form-field identity (GDPR). Placeholder until that ticket.
-            const cls = typeof e.target.className === 'string' && e.target.className
-                ? `.${e.target.className.trim().replace(/\s+/g, '.')}`
-                : '';
-            globalScope.addBreadcrumb({
-                category: 'ui.click',
-                message: `${tag}${id}${cls}`,
-                // We should also implement defensive performance check just in case,
-                // although it was mentioned the original PR wrapped performance.now in network.js,
-                // this also has it in errors.js.
-                time_since_load_ms: typeof performance !== 'undefined' && typeof performance.now === 'function' ? Math.round(performance.now()) : 0
-            });
-        } catch (err) {
-            if (config?.debug) console.warn('[Pulsar] interactionHandler failed', err);
-        }
+        if (!e.target || e.target === document) return;
+        const tag = e.target.tagName ? e.target.tagName.toLowerCase() : 'unknown';
+        const id = e.target.id ? `#${e.target.id}` : '';
+        // PUL-037 (hardening): className will be stripped here to avoid
+        // capturing form-field identity (GDPR). Placeholder until that ticket.
+        const cls = typeof e.target.className === 'string' && e.target.className
+            ? `.${e.target.className.trim().replace(/\s+/g, '.')}`
+            : '';
+        globalScope.addBreadcrumb({
+            category: 'ui.click',
+            message: `${tag}${id}${cls}`,
+            time_since_load_ms: typeof performance !== 'undefined' ? Math.round(performance.now()) : 0
+        });
     };
     document.body.addEventListener('click', state.interactionHandler, true);
 }

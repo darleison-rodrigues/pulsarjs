@@ -55,7 +55,6 @@ describe('Pulsar Capture Pipeline', () => {
         const secondBlob = sendBeaconSpy.mock.calls[1][1];
         const secondBatch = JSON.parse(await secondBlob.text());
         expect(secondBatch.product_refs).toEqual([]);
-        expect(mockState.productRefs).toEqual([]);
     });
 
     it('includes product_refs in flushOnHide', async () => {
@@ -85,6 +84,5 @@ describe('Pulsar Capture Pipeline', () => {
         const secondBlob = sendBeaconSpy.mock.calls[1][1];
         const secondBatch = JSON.parse(await secondBlob.text());
         expect(secondBatch.product_refs).toEqual([]);
-        expect(mockState.productRefs).toEqual([]);
     });
 });

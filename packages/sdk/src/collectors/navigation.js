@@ -53,66 +53,50 @@ export function setupNavigationTracking(state) {
     const originalReplaceState = history.replaceState;
 
     const onRouteChange = async () => {
-        try {
-            const newPath = window.location.pathname;
-            if (newPath === currentPath) return;
+        const newPath = window.location.pathname;
+        if (newPath === currentPath) return;
 
-            const prevPageType = currentPageInfo.type;
-            currentPath = newPath;
-            currentPageInfo = inferPageType(newPath, config.pageTypes);
+        const prevPageType = currentPageInfo.type;
+        currentPath = newPath;
+        currentPageInfo = inferPageType(newPath, config.pageTypes);
 
-            await emitPageView(state, currentPageInfo, 'internal', prevPageType);
+        await emitPageView(state, currentPageInfo, 'internal', prevPageType);
 
-            // Reset scroll depth milestones for new page
-            if (state._scrollMilestones) state._scrollMilestones.clear();
-        } catch (e) {
-            if (config?.debug) console.warn('[Pulsar] onRouteChange failed', e);
-        }
+        // Reset scroll depth milestones for new page
+        if (state._scrollMilestones) state._scrollMilestones.clear();
     };
 
     history.pushState = function () {
-        try {
-            originalPushState.apply(this, arguments);
-            onRouteChange();
-        } catch (e) {
-            if (config?.debug) console.warn('[Pulsar] pushState patch failed', e);
-        }
+        originalPushState.apply(this, arguments);
+        onRouteChange();
     };
 
     history.replaceState = function () {
-        try {
-            originalReplaceState.apply(this, arguments);
-            onRouteChange();
-        } catch (e) {
-            if (config?.debug) console.warn('[Pulsar] replaceState patch failed', e);
-        }
+        originalReplaceState.apply(this, arguments);
+        onRouteChange();
     };
 
     window.addEventListener('popstate', onRouteChange);
 
     // Tab visibility — reveals engagement gaps in the event stream
     const onVisibility = () => {
-        try {
-            // PUL-028: abandoned_at edge — tab hidden after commerce, not checkout
-            const isHidden = document.visibilityState === 'hidden';
-            const abandonEdge = isHidden
-                && state.lastCommerceEventId
-                && state.lastCommerceAction?.action !== 'checkout';
+        // PUL-028: abandoned_at edge — tab hidden after commerce, not checkout
+        const isHidden = document.visibilityState === 'hidden';
+        const abandonEdge = isHidden
+            && state.lastCommerceEventId
+            && state.lastCommerceAction?.action !== 'checkout';
 
-            state.capture({
-                event_type: 'TAB_VISIBILITY',
-                message: `Tab ${document.visibilityState}`,
-                metadata: {
-                    visibility: document.visibilityState,
-                    page_type: currentPageInfo.type
-                },
-                severity: 'info',
-                is_blocking: false,
-                ...(abandonEdge ? { caused_by: state.lastCommerceEventId, edge_hint: 'abandoned_at' } : {})
-            });
-        } catch (e) {
-            if (config?.debug) console.warn('[Pulsar] visibility handler failed', e);
-        }
+        state.capture({
+            event_type: 'TAB_VISIBILITY',
+            message: `Tab ${document.visibilityState}`,
+            metadata: {
+                visibility: document.visibilityState,
+                page_type: currentPageInfo.type
+            },
+            severity: 'info',
+            is_blocking: false,
+            ...(abandonEdge ? { caused_by: state.lastCommerceEventId, edge_hint: 'abandoned_at' } : {})
+        });
     };
     document.addEventListener('visibilitychange', onVisibility);
 

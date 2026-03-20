@@ -15,24 +15,10 @@ PulsarJS is an electronic commerce instrumentation SDK that captures the full sh
 
 Traditional tools tell you "500 errors went up." Pulsar tells you _"Google Ads traffic is hitting a payment API failure on checkout, causing 40% cart abandonment — costing $12K/day."_
 
-* **Zero runtime dependencies.** Single-file IIFE. No npm packages in the browser bundle.
-* **Privacy at capture time.** PII redacted before entering the queue. URLs sanitized. No cookies created.
-* **Nodes not edges.** The SDK emits well-ordered events. The server infers causal relationships.
-* **Provider-based enrichment.** Platform-specific logic is encapsulated in providers, keeping the core engine agnostic.
-
----
-
-## ⚡ Quick Start
-
-Add the following snippet to your `<head>` or via your Tag Manager.
-
 ```html
 <script src="https://api.pulsarjs.com/pulsar.js"></script>
 <script>
-  Pulsar.init({
-    clientId: 'your-tenant-id',
-    siteId: 'my-store'
-  });
+  Pulsar.init({ clientId: 'your-tenant-id', siteId: 'my-store' });
 </script>
 ```
 
@@ -40,19 +26,9 @@ That's it. No npm install, no build step, no consent banner required.
 
 ---
 
-## 📖 Documentation
-
-* [API Reference](docs/API.md) — Full configuration options, public methods, and event schemas.
-* [Platform Providers & Examples](docs/EXAMPLES.md) — How to integrate with SFCC, Shopify, React, and Custom platforms.
-* [Architecture & Guide](docs/GUIDE.md) — Deep dive into the SDK internals, causality engine, and architecture.
-* [Custom Export](docs/EXPORT.md) — How to export event data to your own S3 bucket or data lake.
-* [Changelog](docs/CHANGELOG.md) — Version history and release notes.
-
----
-
 ## How It Works
 
-```text
+```
 Storefront → pulsar.js (22KB) → api.pulsarjs.com → Causal Event Stream → Alerts + Dashboard
 ```
 
@@ -80,6 +56,24 @@ The SDK captures **15 event types**. The server infers **5 causal relationships*
 
 ---
 
+## Campaign Attribution
+
+Captures **16 attribution parameters** from landing URLs — the full paid acquisition ecosystem:
+
+| Platform | Parameters |
+|---|---|
+| Google Ads | `gclid`, `gbraid`, `wbraid` |
+| Meta (Facebook/Instagram) | `fbclid` |
+| Microsoft/Bing | `msclkid` |
+| TikTok, X, LinkedIn, Pinterest, Snapchat | `ttclid`, `twclid`, `li_fat_id`, `pin_unauth`, `sccid` |
+| Google DV360 | `dclid` |
+| Affiliate networks | `irclickid`, `aff_id`, `clickid` |
+| Manual | `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content` |
+
+The server resolves raw params into a **channel taxonomy** (channel → platform → product → intent) for causal event stream enrichment.
+
+---
+
 ## Platform Providers
 
 PulsarJS uses a **provider architecture** to decouple platform-specific enrichment from core instrumentation. Each provider supplies commerce action patterns, page type mappings, endpoint filters, PII patterns, and a context extractor.
@@ -93,7 +87,135 @@ Pulsar.init({ clientId: '...', platform: 'sfcc' });        // explicit (same as 
 Pulsar.init({ clientId: '...' });                           // SFCC is the default
 ```
 
-For custom providers and more examples, see [Platform Providers & Examples](docs/EXAMPLES.md).
+#### SFCC — PWA Kit
+
+```javascript
+// app/components/_app-config/index.jsx
+import '@pulsarjs/sdk';
+
+Pulsar.init({
+    clientId: 'YOUR_CLIENT_ID',
+    siteId: 'RefArch',
+    storefrontType: 'PWA_KIT'
+});
+```
+
+#### SFCC — SiteGenesis (ISML)
+
+```html
+<script src="https://api.pulsarjs.com/pulsar.js"></script>
+<script>
+    Pulsar.init({
+        clientId: 'YOUR_CLIENT_ID',
+        siteId: '${dw.system.Site.current.ID}',
+        storefrontType: 'SITEGENESIS'
+    });
+</script>
+```
+
+### Custom Provider
+
+Pass a provider object to override platform-specific behavior:
+
+```javascript
+Pulsar.init({
+    clientId: '...',
+    platform: {
+        name: 'custom',
+        extractContext: () => ({ tenant: 'acme', region: 'us-east' }),
+        commerceActions: [
+            { action: 'cart_add', method: 'POST', pattern: /\/api\/cart\/add/i }
+        ],
+        pageTypes: [
+            [/\/product\/([^/?]+)/i, 'PDP'],
+            [/\/checkout/i, 'Checkout'],
+            [/^\/$/,  'Home']
+        ],
+        endpointFilter: /\/api\//i,
+        piiPatterns: [
+            { pattern: /\bUSER-\d+\b/gi, replacement: '[USER_REDACTED]' }
+        ]
+    }
+});
+```
+
+Missing keys are filled from sensible generic ecommerce defaults.
+
+### Provider Roadmap
+
+| Provider | Status | Description |
+|---|---|---|
+| SFCC | Built-in | Salesforce Commerce Cloud (PWA Kit, SiteGenesis) |
+| Shopify | Planned | Storefront API + Checkout Extensions |
+| Agentforce Commerce | Planned | AI agent orchestration telemetry |
+| Custom | Available | User-supplied provider object |
+
+---
+
+## Configuration
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `clientId` | `string` | **required** | Your PulsarJS tenant ID |
+| `siteId` | `string` | `'unknown'` | Site identifier |
+| `storefrontType` | `string` | `'PWA_KIT'` | `PWA_KIT` or `SITEGENESIS` |
+| `platform` | `string\|object` | `'sfcc'` | Platform provider — `'sfcc'`, custom object, or provider name |
+| `sampleRate` | `number` | `1.0` | Session sampling (0–1) |
+| `beforeSend` | `async fn` | `null` | Filter/enrich events. Return `null` to drop. |
+| `beforeSendTimeout` | `number` | `2000` | Max ms for `beforeSend` |
+| `endpointFilter` | `RegExp` | from provider | Which fetch/XHR calls to monitor. Overrides provider default. |
+| `commerceActions` | `array` | from provider | Commerce action patterns. Overrides provider default. |
+| `pageTypes` | `array` | from provider | Page type regex/name tuples. Overrides provider default. |
+| `slowApiThreshold` | `number` | `1000` | ms before `API_LATENCY` fires |
+| `rageClickThreshold` | `number` | `3` | Clicks to trigger `RAGE_CLICK` |
+| `rageClickWindow` | `number` | `1000` | ms window for rage detection |
+| `scrollDepthMilestones` | `number[]` | `[25,50,75,100]` | Scroll trigger points |
+| `debug` | `boolean` | `false` | Console logging |
+
+### Public API
+
+```javascript
+Pulsar.captureException(error, { page: 'checkout' }); // Manual capture
+Pulsar.getScope().setTag('experiment', 'v2_checkout');  // Tag sessions
+Pulsar.getScope().setUser({ segment: 'vip' });          // User context
+Pulsar.getContext();                                     // Session snapshot
+Pulsar.enable() / Pulsar.disable();                     // Runtime toggle
+```
+
+---
+
+## Architecture
+
+```
+pulsarjs/
+├── packages/
+│   └── sdk/                         # Core browser SDK
+│       ├── src/
+│       │   ├── index.js             # Public API + IIFE wrapper
+│       │   ├── core/                # capture, config, scope, session
+│       │   ├── collectors/          # errors, network, rum, navigation, interactions
+│       │   ├── providers/           # Platform providers (sfcc, generic)
+│       │   ├── integrations/        # Backward-compat shims
+│       │   └── utils/               # sanitizers, environment
+│       ├── tests/
+│       │   ├── unit/                # Vitest (jsdom)
+│       │   └── e2e/                 # Playwright (Chromium)
+│       └── dist/
+│           ├── pulsar.js            # Production (minified, ~22KB gzip)
+│           └── pulsar.js.map        # Source map
+├── docs/                            # API reference, SDK spec, changelog
+├── .github/workflows/ci.yml         # Lint → Build → Test → E2E
+└── PULSAR_SERVE.md                  # Server architecture (CF Workers)
+```
+
+### Design Principles
+
+- **Zero runtime dependencies.** Single-file IIFE. No npm packages in the browser bundle.
+- **Privacy at capture time.** PII redacted before entering the queue. URLs sanitized. No cookies created.
+- **Nodes not edges.** The SDK emits well-ordered events. The server infers causal relationships.
+- **Provider-based enrichment.** Platform-specific logic is encapsulated in providers, keeping the core engine agnostic.
+- **Debounce, don't flood.** 2-second flush timer. `sendBeacon` on page hide. Never flush per-event.
+- **Restore everything on disable().** Every patched global and event listener is torn down cleanly.
 
 ---
 

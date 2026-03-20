@@ -55,15 +55,16 @@ export const Sanitizers = {
     sanitizeStack(stack) {
         if (!stack) return null;
         const v = String(stack);
-        let cleaned = v.split('\n').slice(0, 15).join('\n');
+        const lines = v.split('\n').slice(0, 15);
 
-        cleaned = cleaned.replace(/@https?:\/\/[^\/]+\//g, '@');
-        cleaned = cleaned.replace(/@file:\/\/.*\//g, '@');
-        cleaned = cleaned.replace(/[A-Z]:\\[\w\\.]+\\/g, '');
-        cleaned = cleaned.replace(/\/Users\/[\w\/]+\//g, '');
-        cleaned = cleaned.replace(/\/home\/[\w\/]+\//g, '');
-
-        return cleaned;
+        return lines.map(line => {
+            let cleaned = line.replace(/@https?:\/\/[^\/]+\//g, '@');
+            cleaned = cleaned.replace(/@file:\/\/.*\//g, '@');
+            cleaned = cleaned.replace(/[A-Z]:\\[\w\\.]+\\/g, '');
+            cleaned = cleaned.replace(/\/Users\/[\w\/]+\//g, '');
+            cleaned = cleaned.replace(/\/home\/[\w\/]+\//g, '');
+            return cleaned;
+        }).join('\n');
     },
 
     /**
@@ -87,7 +88,7 @@ export const Sanitizers = {
      */
     sanitizeApiEndpoint(url) {
         if (!url) return null;
-        let v = String(url).split(/[?#]/)[0];
+        let v = String(url);
         v = v.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, '{uuid}');
         v = v.replace(/\/\d{6,}/g, '/{id}');
         v = v.replace(/\/baskets\/[a-z0-9]+/gi, '/baskets/{basket_id}');

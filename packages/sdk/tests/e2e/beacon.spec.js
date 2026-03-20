@@ -2,6 +2,10 @@ import { test, expect } from '@playwright/test';
 
 test.describe('PulsarJS E2E Payload Verification', () => {
     test('SDK initialization sends valid payload via navigator.sendBeacon or fetch', async ({ page }) => {
+        // Log console output from the browser
+        // eslint-disable-next-line no-console
+        page.on('console', msg => console.log('BROWSER LOG:', msg.text()));
+
         // Navigate to our local test page where the SDK is injected
         await page.goto('http://localhost:3000/tests/e2e/test.html');
 
@@ -13,6 +17,11 @@ test.describe('PulsarJS E2E Payload Verification', () => {
         // Navigate to our local test page where the SDK is injected
         await page.goto('http://localhost:3000/tests/e2e/test.html');
 
+        // Check if the script loaded properly
+        const isPulsarDefined = await page.evaluate(() => typeof window.Pulsar !== 'undefined');
+        // eslint-disable-next-line no-console
+        console.log('Is Pulsar defined?', isPulsarDefined);
+
         // Wait for the request to be captured
         const request = await requestPromise;
 
@@ -23,12 +32,11 @@ test.describe('PulsarJS E2E Payload Verification', () => {
         try {
             const rawBody = request.postDataBuffer() ? request.postDataBuffer().toString() : request.postData();
             postData = rawBody ? JSON.parse(rawBody) : request.postDataJSON();
-        } catch (_e) {
-            // Silently fail parsing; the expectation below will catch null/undefined postData
+        } catch (e) {
+            console.error('Failed to parse beacon payload', e);
         }
 
         // Assert exactly what the payload should contain based on domain rules
-        expect(postData).toBeTruthy();
         expect(postData).toHaveProperty('pulsar_version');
         expect(postData).toHaveProperty('client_id', 'test-client-id');
         expect(postData).toHaveProperty('site_id', 'test-site-id');

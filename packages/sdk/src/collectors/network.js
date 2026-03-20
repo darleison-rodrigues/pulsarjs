@@ -46,45 +46,16 @@ export function setupFetchInterceptor(state) {
 
         if (!isMonitoredRoute || isInternalRoute) return proceed();
 
-        let method = 'GET';
-        let bodySnippet = null;
-        let startTime = Date.now();
-
         try {
-            method = (args[1]?.method || 'GET').toUpperCase();
+            const method = (args[1]?.method || 'GET').toUpperCase();
+            let bodySnippet = null;
             if (args[1] && args[1].body && typeof args[1].body === 'string') {
                 bodySnippet = Sanitizers.redactPII(args[1].body).substring(0, 500);
             }
-            startTime = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
-        } catch (e) {
-            if (config.debug) console.warn('[Pulsar] fetch pre-processing failed', e);
-        }
 
-        let response;
-        try {
-            response = await state.originalFetch.apply(this, args);
-        } catch (error) {
-            try {
-                if (!state.processedErrors) state.processedErrors = new WeakSet();
-                if (!state.processedErrors.has(error)) {
-                    capture({
-                        event_type: "NETWORK_ERROR",
-                        message: error.message,
-                        metadata: { endpoint: Sanitizers.sanitizeApiEndpoint(requestUrl), method },
-                        severity: "error",
-                        is_blocking: true
-                    });
-                    state.processedErrors.add(error);
-                }
-            } catch (e) {
-                if (config.debug) console.warn('[Pulsar] fetch error capture failed', e);
-                if (config?.debug) console.warn('[Pulsar] fetch error capture failed', e);
-            }
-            throw error;
-        }
-
-        try {
-            const duration = (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now()) - startTime;
+            const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            const response = await state.originalFetch.apply(this, args);
+            const duration = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime;
 
             if (!response.ok) {
                 // PUL-028: blocked_by edge — commerce failed after prior commerce event
@@ -142,11 +113,21 @@ export function setupFetchInterceptor(state) {
                     });
                 }
             }
-        } catch (e) {
-            if (config?.debug) console.warn('[Pulsar] fetch post-processing failed', e);
-        }
+            return response;
+        } catch (error) {
+            if (state.processedErrors.has(error)) throw error;
 
-        return response;
+            capture({
+                event_type: "NETWORK_ERROR",
+                message: error.message,
+                metadata: { endpoint: Sanitizers.sanitizeApiEndpoint(requestUrl), method },
+                severity: "error",
+                is_blocking: true
+            });
+
+            state.processedErrors.add(error);
+            throw error;
+        }
     };
 }
 
@@ -173,7 +154,7 @@ export function setupXHRInterceptor(state) {
 
     XMLHttpRequest.prototype.send = function (body) {
         try {
-            const startTime = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+            const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
             const requestUrl = typeof this._url === 'string' ? this._url : '';
 
             const isMonitoredRoute = config.endpointFilter ? config.endpointFilter.test(requestUrl) : true;
@@ -182,7 +163,7 @@ export function setupXHRInterceptor(state) {
             if (isMonitoredRoute && !isInternalRoute) {
                 this.addEventListener('loadend', async () => {
                     try {
-                        const duration = (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now()) - startTime;
+                        const duration = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime;
 
                         if (this.status === 0) {
                             capture({
