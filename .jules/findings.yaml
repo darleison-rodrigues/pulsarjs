@@ -1,7 +1,0 @@
-- date: 2024-05-18
-  code: C2
-  file: packages/sdk/src/core/capture.js
-  line: 356
-  status: fixed
-  pr: null
-  skipped_reason: ""

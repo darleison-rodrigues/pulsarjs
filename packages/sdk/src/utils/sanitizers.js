@@ -49,6 +49,43 @@ export const Sanitizers = {
         return this.sanitizeMessage(msg);
     },
 
+    // SECURITY: C2 - Only apply PII redaction to known fields that can contain user data (Allowlist approach)
+    _piiFields: new Set(['message', 'url', 'response_snippet', 'path', 'endpoint', 'body', 'selector', 'textContent', 'error_message', 'product_ref']),
+
+    /**
+     * Recursively traverse an object and sanitize only allowed fields that may contain PII.
+     * This ensures PII is stripped from event payloads before sending while preserving
+     * structure and identifiers.
+     */
+    sanitize(payload) {
+        if (!payload || typeof payload !== 'object') {
+            return payload; // Primitive value or null/undefined
+        }
+
+        // Avoid mutating Dates, RegExps, etc.
+        if (Object.prototype.toString.call(payload) !== '[object Object]' && !Array.isArray(payload)) {
+            return payload;
+        }
+
+        if (Array.isArray(payload)) {
+            return payload.map(item => this.sanitize(item));
+        }
+
+        const sanitized = {};
+
+        for (const key of Object.keys(payload)) {
+            const value = payload[key];
+            if (typeof value === 'string' && this._piiFields.has(key)) {
+                sanitized[key] = this.redactPII(value);
+            } else if (typeof value === 'object' && value !== null) {
+                sanitized[key] = this.sanitize(value);
+            } else {
+                sanitized[key] = value;
+            }
+        }
+        return sanitized;
+    },
+
     /**
      * Limit stack trace depth and remove file paths.
      */
