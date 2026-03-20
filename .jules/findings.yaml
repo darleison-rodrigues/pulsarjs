@@ -1,0 +1,10 @@
+findings:
+  - id: C2
+    status: Fixed
+    description: "Replaced hardcoded `pulsar_version` in `capture.js` with build-time injection via esbuild define `__VERSION__`"
+  - id: H2
+    status: Fixed
+    description: "Consolidated History API monkey-patches to `navigation.js` and replaced patching in `rum.js` with listening to the `pulsar:route-change` event"
+  - id: H3
+    status: Fixed
+    description: "Added `typeof window !== 'undefined'` guard before assigning `window.Pulsar` in `index.js` to prevent SSR import crashes"

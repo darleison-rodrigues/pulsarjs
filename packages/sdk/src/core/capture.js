@@ -339,7 +339,7 @@ export function createCapturePipeline(sharedState) {
 
         const { session, manifest } = buildEnvelopeContext(snapshot, state);
         const batch = {
-            pulsar_version: '1.0.0',
+            pulsar_version: __VERSION__,
             client_id: state.config.clientId,
             site_id: state.config.siteId,
             flushed_at: new Date().toISOString(),
@@ -398,7 +398,7 @@ export function createCapturePipeline(sharedState) {
 
         const { session, manifest } = buildEnvelopeContext(snapshot, state);
         const batch = {
-            pulsar_version: '1.0.0',
+            pulsar_version: __VERSION__,
             client_id: state.config.clientId,
             site_id: state.config.siteId,
             flushed_at: new Date().toISOString(),

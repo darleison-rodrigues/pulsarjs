@@ -51,8 +51,9 @@ export function setupNavigationTracking(state) {
     // Patch History API for SPA navigation (PWA Kit uses React Router → pushState)
     const originalPushState = history.pushState;
     const originalReplaceState = history.replaceState;
+    let currentHref = window.location.href;
 
-    const onRouteChange = async () => {
+    const onRouteChange = async (departingUrl) => {
         try {
             const newPath = window.location.pathname;
             if (newPath === currentPath) return;
@@ -65,30 +66,44 @@ export function setupNavigationTracking(state) {
 
             // Reset scroll depth milestones for new page
             if (state._scrollMilestones) state._scrollMilestones.clear();
+
+            // Emit custom event for other collectors (e.g., RUM)
+            window.dispatchEvent(new CustomEvent('pulsar:route-change', {
+                detail: { newUrl: window.location.href, departingUrl }
+            }));
         } catch (e) {
             if (config?.debug) console.warn('[Pulsar] onRouteChange failed', e);
         }
     };
 
-    history.pushState = function () {
+    history.pushState = function (...args) {
         try {
-            originalPushState.apply(this, arguments);
-            onRouteChange();
+            const departingUrl = currentHref;
+            originalPushState.apply(this, args);
+            currentHref = window.location.href;
+            onRouteChange(departingUrl);
         } catch (e) {
             if (config?.debug) console.warn('[Pulsar] pushState patch failed', e);
         }
     };
 
-    history.replaceState = function () {
+    history.replaceState = function (...args) {
         try {
-            originalReplaceState.apply(this, arguments);
-            onRouteChange();
+            const departingUrl = currentHref;
+            originalReplaceState.apply(this, args);
+            currentHref = window.location.href;
+            onRouteChange(departingUrl);
         } catch (e) {
             if (config?.debug) console.warn('[Pulsar] replaceState patch failed', e);
         }
     };
 
-    window.addEventListener('popstate', onRouteChange);
+    const onPopState = () => {
+        const departingUrl = currentHref;
+        currentHref = window.location.href;
+        onRouteChange(departingUrl);
+    };
+    window.addEventListener('popstate', onPopState);
 
     // Tab visibility — reveals engagement gaps in the event stream
     const onVisibility = () => {
@@ -119,7 +134,7 @@ export function setupNavigationTracking(state) {
     // Store references for teardown
     state._navOriginalPushState = originalPushState;
     state._navOriginalReplaceState = originalReplaceState;
-    state._navPopstateHandler = onRouteChange;
+    state._navPopstateHandler = onPopState;
     state._navVisibilityHandler = onVisibility;
 }
 
