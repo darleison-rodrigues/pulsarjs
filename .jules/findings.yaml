@@ -1,0 +1,1 @@
+- finding: C2 PII Leakage via API Endpoint Query Parameters\n  file: packages/sdk/src/utils/sanitizers.js\n  status: fixed

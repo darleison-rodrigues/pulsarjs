@@ -110,4 +110,16 @@ describe('Sanitizers', () => {
             expect(Sanitizers.sanitizeStack(undefined)).toBeNull();
         });
     });
+
+    describe('sanitizeApiEndpoint', () => {
+        it('should strip query string before all regex replacements', () => {
+            const url = 'https://api.example.com/orders/123?email=user@test.com';
+            expect(Sanitizers.sanitizeApiEndpoint(url)).toBe('https://api.example.com/orders/{order_id}');
+        });
+
+        it('should redact UUIDs without query params', () => {
+            const url = "/api/users/123e4567-e89b-12d3-a456-426614174000/profile";
+            expect(Sanitizers.sanitizeApiEndpoint(url)).toBe("/api/users/{uuid}/profile");
+        });
+    });
 });
