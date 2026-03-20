@@ -1,0 +1,7 @@
+- date: 2024-05-24
+  code: P7
+  file: packages/sdk/src/utils/sanitizers.js
+  line: 58
+  status: fixed
+  pr: null
+  skipped_reason: ""
