@@ -66,11 +66,20 @@ export const Sanitizers = {
 
         let cleaned = idx !== -1 ? v.substring(0, idx) : v;
 
-        cleaned = cleaned.replace(/@https?:\/\/[^\/]+\//g, '@');
-        cleaned = cleaned.replace(/@file:\/\/.*\//g, '@');
-        cleaned = cleaned.replace(/[A-Z]:\\[\w\\.]+\\/g, '');
-        cleaned = cleaned.replace(/\/Users\/[\w\/]+\//g, '');
-        cleaned = cleaned.replace(/\/home\/[\w\/]+\//g, '');
+        let lastIndex = -1;
+        for (let i = 0; i < 15; i++) {
+            lastIndex = v.indexOf('\n', lastIndex + 1);
+            if (lastIndex === -1) break;
+        }
+
+        let cleaned = lastIndex === -1 ? v : v.substring(0, lastIndex);
+
+        cleaned = cleaned
+            .replace(/@https?:\/\/[^\/]+\//g, '@')
+            .replace(/@file:\/\/.*\//g, '@')
+            .replace(/[A-Z]:\\[\w\\.]+\\/g, '')
+            .replace(/\/Users\/[\w\/]+\//g, '')
+            .replace(/\/home\/[\w\/]+\//g, '');
 
         return cleaned;
     },

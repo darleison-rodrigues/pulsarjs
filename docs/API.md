@@ -1,4 +1,4 @@
-# PulsarJS API Reference
+# API Reference
 
 Privacy-first commerce instrumentation SDK — platform-agnostic, causality-aware.
 
@@ -18,18 +18,6 @@ Server-side rate limiting and origin allowlists handle authenticated ingestion.
 
 ---
 
-## SDK Quick Start
-
-```html
-<script src="https://api.pulsarjs.com/pulsar.js"></script>
-<script>
-    Pulsar.init({
-        clientId: 'your-tenant-id',
-        siteId: 'RefArch',
-        debug: false
-    });
-</script>
-```
 
 ### `Pulsar.init(config)`
 
@@ -75,20 +63,29 @@ const context = Pulsar.getContext();
 console.log(context.sessionID);
 ```
 
+
+---
+
+## Interacting with the Scope
+
+The Scope API enables context tracking and session tagging that are forwarded to all telemetry events. This enables richer cohort aggregation.
+
 ### `Pulsar.getScope()`
 
 Returns the current `Scope` instance for tag/breadcrumb management:
 
 ```javascript
+// Add experiment details
 Pulsar.getScope().setTag('experiment', 'v2_checkout');
+// Group events by a user characteristic (never add raw PII)
 Pulsar.getScope().setUser({ segment: 'vip' });
 ```
 
 ---
 
-## PlatformProvider Interface
+## Defining Custom Commerce Providers
 
-Custom platform providers can be passed via the `platform` config option. A provider is an object with the following shape:
+While PulsarJS ships with an `sfcc` built-in provider, custom platform providers can be passed via the `platform` config option. A provider is an object with the following shape:
 
 ```javascript
 /**
@@ -593,36 +590,6 @@ Edge materialization happens in the batch consumer. Dashboard queries become gra
 |---|---|
 | **Email** | Phase 1 default (via SendGrid/Resend) |
 | **Slack** | Opt-in webhook integration |
-
----
-
-## SFCC Integration
-
-### PWA Kit (Recommended)
-
-```javascript
-// app/components/_app-config/index.jsx
-import Pulsar from '@pulsarjs/sdk';
-
-Pulsar.init({
-    clientId: 'YOUR_CLIENT_ID',
-    siteId: 'RefArch',
-    storefrontType: 'PWA_KIT'
-});
-```
-
-### SiteGenesis (ISML)
-
-```html
-<script src="https://api.pulsarjs.com/pulsar.js"></script>
-<script>
-    Pulsar.init({
-        clientId: 'YOUR_CLIENT_ID',
-        siteId: '${dw.system.Site.current.ID}',
-        storefrontType: 'SITEGENESIS'
-    });
-</script>
-```
 
 ---
 

@@ -23,7 +23,7 @@ test.describe('PulsarJS E2E Payload Verification', () => {
         try {
             const rawBody = request.postDataBuffer() ? request.postDataBuffer().toString() : request.postData();
             postData = rawBody ? JSON.parse(rawBody) : request.postDataJSON();
-        } catch (e) {
+        } catch (_e) {
             // Silently fail parsing; the expectation below will catch null/undefined postData
         }
 
