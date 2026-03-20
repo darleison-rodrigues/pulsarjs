@@ -110,4 +110,43 @@ describe('Sanitizers', () => {
             expect(Sanitizers.sanitizeStack(undefined)).toBeNull();
         });
     });
+
+    describe('sanitizeApiEndpoint', () => {
+        it('should return null for empty values', () => {
+            expect(Sanitizers.sanitizeApiEndpoint(null)).toBeNull();
+            expect(Sanitizers.sanitizeApiEndpoint("")).toBeNull();
+        });
+
+        it('should strip query parameters and hash fragments', () => {
+            const url1 = "https://api.example.com/v1/orders/123456?email=user@example.com";
+            expect(Sanitizers.sanitizeApiEndpoint(url1)).toBe("https://api.example.com/v1/orders/{id}");
+
+            const url2 = "https://api.example.com/v1/baskets/abc123xyz?token=secret#top";
+            expect(Sanitizers.sanitizeApiEndpoint(url2)).toBe("https://api.example.com/v1/baskets/{basket_id}");
+
+            const url3 = "https://api.example.com/data?query=123#frag";
+            expect(Sanitizers.sanitizeApiEndpoint(url3)).toBe("https://api.example.com/data");
+        });
+
+        it('should redact UUIDs', () => {
+            const url = "https://api.example.com/users/123e4567-e89b-12d3-a456-426614174000/profile";
+            expect(Sanitizers.sanitizeApiEndpoint(url)).toBe("https://api.example.com/users/{uuid}/profile");
+        });
+
+        it('should redact numeric IDs', () => {
+            const url = "https://api.example.com/items/987654321/details";
+            expect(Sanitizers.sanitizeApiEndpoint(url)).toBe("https://api.example.com/items/{id}/details");
+        });
+
+        it('should redact order IDs', () => {
+            const url = "https://api.example.com/orders/a1b2c3d4";
+            expect(Sanitizers.sanitizeApiEndpoint(url)).toBe("https://api.example.com/orders/{order_id}");
+        });
+
+        it('should truncate URLs longer than 200 characters', () => {
+            const longUrl = "https://api.example.com/path/" + "a".repeat(300);
+            const sanitized = Sanitizers.sanitizeApiEndpoint(longUrl);
+            expect(sanitized.length).toBe(200);
+        });
+    });
 });

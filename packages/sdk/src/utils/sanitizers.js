@@ -84,10 +84,17 @@ export const Sanitizers = {
 
     /**
      * Remove IDs from API endpoints for grouping.
+     * // SECURITY: Data Exposure via Query Parameters in API Endpoints
      */
     sanitizeApiEndpoint(url) {
         if (!url) return null;
-        let v = String(url).split(/[?#]/)[0];
+        let v = String(url);
+        try {
+            const parsed = new URL(v, 'http://example.com');
+            v = parsed.origin !== 'http://example.com' ? parsed.origin + parsed.pathname : parsed.pathname;
+        } catch (_e) {
+            v = v.split(/[?#]/)[0];
+        }
         v = v.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, '{uuid}');
         v = v.replace(/\/\d{6,}/g, '/{id}');
         v = v.replace(/\/baskets\/[a-z0-9]+/gi, '/baskets/{basket_id}');
