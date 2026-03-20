@@ -1,0 +1,40 @@
+name: Changelog Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate Changelog Preview
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          toTag: ${{ github.sha }}
+          fromTag: ${{ github.event.pull_request.base.sha }}
+
+      - name: Comment PR with Changelog Preview
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: changelog-preview
+          message: |
+            ### 📝 Changelog Preview
+
+            ${{ steps.changelog.outputs.changelog }}
+
+            > _This is an automated preview of the changelog for this pull request._
