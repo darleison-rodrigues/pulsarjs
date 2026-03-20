@@ -90,16 +90,19 @@ export function setupRageClickDetector(state) {
 
             clicks.push({ selector, time: now });
 
+            let firstValid = 0;
+            while (firstValid < clicks.length && now - clicks[firstValid].time >= windowMs) {
+                firstValid++;
+            }
+
             let sameTargetCount = 0;
             let writeIndex = 0;
 
-            for (let i = 0; i < clicks.length; i++) {
+            for (let i = firstValid; i < clicks.length; i++) {
                 const c = clicks[i];
-                if (now - c.time < windowMs) {
-                    clicks[writeIndex++] = c;
-                    if (c.selector === selector) {
-                        sameTargetCount++;
-                    }
+                clicks[writeIndex++] = c;
+                if (c.selector === selector) {
+                    sameTargetCount++;
                 }
             }
             clicks.length = writeIndex;
