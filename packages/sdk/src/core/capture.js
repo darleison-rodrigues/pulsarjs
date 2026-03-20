@@ -352,7 +352,10 @@ export function createCapturePipeline(sharedState) {
         };
         state.productRefs = [];
 
-        const blob = new Blob([JSON.stringify(batch)], { type: 'application/json' });
+        // SECURITY: C2
+        const sanitizedPayload = Sanitizers.redactPII(JSON.stringify(batch));
+        if (!sanitizedPayload) return;
+        const blob = new Blob([sanitizedPayload], { type: 'application/json' });
         navigator.sendBeacon(state.config.endpoint, blob);
     }
 
@@ -413,7 +416,9 @@ export function createCapturePipeline(sharedState) {
 
         const endpoint = state.config.endpoint;
         const nativeFetch = state.originalFetch || window.fetch;
-        const payloadStr = JSON.stringify(batch);
+        // SECURITY: C2
+        const payloadStr = Sanitizers.redactPII(JSON.stringify(batch));
+        if (!payloadStr) return;
 
         // ── sendBeacon — primary transport ────────────────────────────────────
         // Works during page unload, no CORS preflight, fire-and-forget.
