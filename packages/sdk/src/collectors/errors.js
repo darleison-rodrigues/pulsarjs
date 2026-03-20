@@ -74,19 +74,25 @@ export function setupErrorHandlers(state) {
                 mutationBuffer = [];
                 mutationTimeout = null;
 
+                if (config.criticalSelectors.length === 0) return;
+
+                const joinedSelector = config.criticalSelectors.join(',');
+
                 for (const node of nodesToProcess) {
-                    for (const selector of config.criticalSelectors) {
-                        if (
-                            (node.matches && node.matches(selector)) ||
-                            (node.querySelector && node.querySelector(selector))
-                        ) {
-                            const eventId = await capture({
-                                event_type: 'UI_FAILURE',
-                                message: `Critical error UI rendered: ${selector}`,
-                                severity: 'warning',
-                                is_blocking: false
-                            });
-                            if (eventId) state.lastErrorEventId = eventId;
+                    if (
+                        (node.matches && node.matches(joinedSelector)) ||
+                        (node.querySelector && node.querySelector(joinedSelector))
+                    ) {
+                        for (const selector of config.criticalSelectors) {
+                            if ((node.matches && node.matches(selector)) || (node.querySelector && node.querySelector(selector))) {
+                                const eventId = await capture({
+                                    event_type: 'UI_FAILURE',
+                                    message: `Critical error UI rendered: ${selector}`,
+                                    severity: 'warning',
+                                    is_blocking: false
+                                });
+                                if (eventId) state.lastErrorEventId = eventId;
+                            }
                         }
                     }
                 }
