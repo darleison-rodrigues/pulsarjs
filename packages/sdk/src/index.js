@@ -109,8 +109,6 @@ const Pulsar = (function () {
             visibilityHandler: null,
             interactionHandler: null,
             // SPA navigation hook (PUL-034)
-            originalPushState: null,
-            originalReplaceState: null,
             spaNavigationHandler: null,
 
             // Navigation teardown refs
@@ -280,9 +278,7 @@ const Pulsar = (function () {
                     if (state.visibilityHandler) { document.removeEventListener('visibilitychange', state.visibilityHandler); state.visibilityHandler = null; }
                     if (state.interactionHandler) { document.body.removeEventListener('click', state.interactionHandler, true); state.interactionHandler = null; }
                     // PUL-034: restore history methods and remove popstate listener
-                    if (state.originalPushState) { history.pushState = state.originalPushState; state.originalPushState = null; }
-                    if (state.originalReplaceState) { history.replaceState = state.originalReplaceState; state.originalReplaceState = null; }
-                    if (state.spaNavigationHandler) { window.removeEventListener('popstate', state.spaNavigationHandler); state.spaNavigationHandler = null; }
+                    if (state.spaNavigationHandler) { window.removeEventListener('pulsar:route-change', state.spaNavigationHandler); state.spaNavigationHandler = null; }
 
                     // Teardown navigation tracking
                     if (state._navOriginalPushState) { history.pushState = state._navOriginalPushState; state._navOriginalPushState = null; }
@@ -388,5 +384,7 @@ const Pulsar = (function () {
     return defaultClient;
 })();
 
-window.Pulsar = Pulsar;
+if (typeof window !== 'undefined') {
+    window.Pulsar = Pulsar;
+}
 export default Pulsar;

@@ -21,6 +21,7 @@ describe('Pulsar Capture Pipeline', () => {
     });
 
     it('includes product_refs in batch and resets them after flush', async () => {
+        vi.stubGlobal('__VERSION__', '1.0.0');
         const mockState = {
             enabled: true,
             isInitialized: true,
@@ -59,6 +60,7 @@ describe('Pulsar Capture Pipeline', () => {
     });
 
     it('includes product_refs in flushOnHide', async () => {
+        vi.stubGlobal('__VERSION__', '1.0.0');
         const mockState = {
             config: { endpoint: 'https://pulsar.test/ingest', clientId: 'test-client' },
             queue: [{ event_type: 'PAGE_VIEW' }],

@@ -3,8 +3,8 @@
     "version": "1.0.0",
     "private": true,
     "scripts": {
-        "build": "esbuild src/index.js --bundle --minify --outfile=dist/pulsar.js --sourcemap --format=iife",
-        "build:dev": "esbuild src/index.js --bundle --outfile=dist/pulsar.dev.js --sourcemap --format=iife",
+        "build": "node scripts/build.js --minify",
+        "build:dev": "node scripts/build.js",
         "test": "vitest run",
         "test:e2e": "playwright test"
     },

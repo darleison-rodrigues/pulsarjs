@@ -52,6 +52,15 @@ export function setupNavigationTracking(state) {
     const originalPushState = history.pushState;
     const originalReplaceState = history.replaceState;
 
+    let currentHref = window.location.href;
+
+    const dispatchRouteChange = (newUrl, departingUrl) => {
+        const event = new CustomEvent('pulsar:route-change', {
+            detail: { newUrl, departingUrl }
+        });
+        window.dispatchEvent(event);
+    };
+
     const onRouteChange = async () => {
         try {
             const newPath = window.location.pathname;
@@ -70,25 +79,38 @@ export function setupNavigationTracking(state) {
         }
     };
 
-    history.pushState = function () {
+    history.pushState = function (...args) {
         try {
-            originalPushState.apply(this, arguments);
+            const departingUrl = currentHref;
+            originalPushState.apply(this, args);
+            currentHref = window.location.href;
+            dispatchRouteChange(args[2], departingUrl);
             onRouteChange();
         } catch (e) {
             if (config?.debug) console.warn('[Pulsar] pushState patch failed', e);
         }
     };
 
-    history.replaceState = function () {
+    history.replaceState = function (...args) {
         try {
-            originalReplaceState.apply(this, arguments);
+            const departingUrl = currentHref;
+            originalReplaceState.apply(this, args);
+            currentHref = window.location.href;
+            dispatchRouteChange(args[2], departingUrl);
             onRouteChange();
         } catch (e) {
             if (config?.debug) console.warn('[Pulsar] replaceState patch failed', e);
         }
     };
 
-    window.addEventListener('popstate', onRouteChange);
+    const popstateHandler = () => {
+        const departingUrl = currentHref;
+        currentHref = window.location.href;
+        dispatchRouteChange(window.location.href, departingUrl);
+        onRouteChange();
+    };
+
+    window.addEventListener('popstate', popstateHandler);
 
     // Tab visibility — reveals engagement gaps in the event stream
     const onVisibility = () => {
@@ -119,7 +141,7 @@ export function setupNavigationTracking(state) {
     // Store references for teardown
     state._navOriginalPushState = originalPushState;
     state._navOriginalReplaceState = originalReplaceState;
-    state._navPopstateHandler = onRouteChange;
+    state._navPopstateHandler = popstateHandler;
     state._navVisibilityHandler = onVisibility;
 }
 

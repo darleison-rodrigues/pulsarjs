@@ -52,6 +52,7 @@ describe('SDK Hardening - Defensive Coding', () => {
     });
 
     it('should fallback to fetch if navigator.sendBeacon returns false (CSP blocked)', async () => {
+        vi.stubGlobal('__VERSION__', '1.0.0');
         vi.stubGlobal('navigator', { sendBeacon: vi.fn().mockReturnValue(false) });
         const mockFetch = vi.fn().mockResolvedValue({ ok: true });
         vi.stubGlobal('fetch', mockFetch);
@@ -129,6 +130,7 @@ describe('SDK Hardening - Defensive Coding', () => {
     });
 
     it('should gracefully degrade if navigator.sendBeacon does not exist', async () => {
+        vi.stubGlobal('__VERSION__', '1.0.0');
         vi.stubGlobal('navigator', { sendBeacon: undefined });
         const mockFetch = vi.fn().mockResolvedValue({ ok: true });
         vi.stubGlobal('fetch', mockFetch);
@@ -252,5 +254,112 @@ describe('SDK Hardening - Defensive Coding', () => {
         expect(() => {
             state.interactionHandler(clickEvent);
         }).not.toThrow();
+    });
+
+    it('M6: Version injected properly from package.json via esbuild', () => {
+        // Mock __VERSION__ global just for the test scope, as esbuild injects it
+        vi.stubGlobal('__VERSION__', '1.2.3');
+
+        const state = {
+            config: { debug: false, endpoint: 'https://pulsar.test/ingest' },
+            sessionID: 'sess-1',
+            queue: [{ event_type: 'TEST_EVENT' }],
+            droppedSinceLastFlush: 0,
+            originalFetch: vi.fn().mockResolvedValue({ ok: true })
+        };
+
+        const pipeline = createCapturePipeline(state);
+
+        const originalBlob = global.Blob;
+        let blobContent = null;
+        global.Blob = function (content) {
+            blobContent = JSON.parse(content[0]);
+            return new originalBlob(content);
+        };
+        vi.stubGlobal('navigator', { sendBeacon: vi.fn().mockReturnValue(true) });
+
+        pipeline.flushOnHide();
+
+        expect(blobContent).toBeDefined();
+        expect(blobContent.pulsar_version).toBe('1.2.3');
+
+        global.Blob = originalBlob;
+    });
+
+    it('L6: SSR guard prevents ReferenceError when window is undefined', async () => {
+        // Load the module as string to simulate SSR where window is undefined
+        const fs = await import('fs');
+        const path = await import('path');
+        const srcPath = path.resolve(__dirname, '../../src/index.js');
+        let code = fs.readFileSync(srcPath, 'utf8');
+
+        // Execute the code in a function context where window is explicitly undefined
+        const ssrTest = new Function(`
+            let window = undefined;
+            const document = undefined;
+            const navigator = undefined;
+            const exports = {};
+            const module = { exports };
+
+            // Stub out imports and classes to avoid syntax errors in new Function
+            const Scope = class {};
+            const DEFAULT_CONFIG = {};
+            const validateConfig = () => [];
+            const generateSessionID = () => 'sess-123';
+            const getPersistedSession = () => null;
+            const persistSession = () => {};
+            const createCapturePipeline = () => ({ capture: () => {}, flush: () => {}, flushOnHide: () => {} });
+            const setupErrorHandlers = () => {};
+            const setupFetchInterceptor = () => {};
+            const setupXHRInterceptor = () => {};
+            const setupPerformanceObserver = () => {};
+            const captureRUM = () => {};
+            const setupNavigationTracking = () => {};
+            const setupScrollObserver = () => {};
+            const setupRageClickDetector = () => {};
+            const resolveProvider = () => ({ extractContext: () => ({}), commerceActions: [], pageTypes: [], endpointFilter: /.*/ });
+            const captureEnvironment = () => ({});
+            const extractCampaigns = () => null;
+            const buildDeviceInfo = () => ({});
+            const Sanitizers = { registerPiiPatterns: () => {} };
+
+            ${code.replace(/import .* from .*/g, '').replace(/export default Pulsar;/g, '').replace(/export /g, '')}
+
+            return typeof window === 'undefined';
+        `);
+
+        expect(() => ssrTest()).not.toThrow();
+    });
+
+    it('M5: History API patches fire events and cleanup properly', async () => {
+        const { setupNavigationTracking } = await import('../../src/collectors/navigation.js');
+        const state = {
+            config: { debug: false, pageTypes: [] },
+            capture: vi.fn().mockResolvedValue('event-1'),
+            productRefs: []
+        };
+
+        const originalPushState = history.pushState;
+        const originalReplaceState = history.replaceState;
+
+        setupNavigationTracking(state);
+
+        expect(history.pushState).not.toBe(originalPushState);
+        expect(history.replaceState).not.toBe(originalReplaceState);
+
+        const eventListener = vi.fn();
+        window.addEventListener('pulsar:route-change', eventListener);
+
+        history.pushState(null, '', '/new-path');
+
+        expect(eventListener).toHaveBeenCalled();
+        expect(eventListener.mock.calls[0][0].detail).toMatchObject({
+            newUrl: '/new-path'
+        });
+
+        // Cleanup
+        if (state._navOriginalPushState) history.pushState = state._navOriginalPushState;
+        if (state._navOriginalReplaceState) history.replaceState = state._navOriginalReplaceState;
+        window.removeEventListener('pulsar:route-change', eventListener);
     });
 });
