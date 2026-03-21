@@ -4,101 +4,151 @@
  * Provider-extensible via registerPiiPatterns().
  */
 
-export const Sanitizers = {
-    // SECURITY: H2
-    _extraPatterns: [],
+export function createSanitizer() {
+    return {
+        // SECURITY: H2
+        _extraPatterns: [],
 
-    /**
-     * Register additional PII patterns from a platform provider.
-     * @param {Array<{pattern: RegExp, replacement: string}>} patterns
-     */
-    registerPiiPatterns(patterns) {
-        // SECURITY: H3
-        for (const { pattern } of patterns) {
-            if (pattern && pattern.source) {
-                // Reject nested quantifiers like (a+)+, (a*)*, (a?)+ which cause ReDoS
-                if (/(\([^)]*[+*?]\)[+*?])/.test(pattern.source)) {
-                    throw new Error(`[Pulsar] Rejected ReDoS-vulnerable PII pattern: ${pattern.source}`);
+        /**
+         * Register additional PII patterns from a platform provider.
+         * @param {Array<{pattern: RegExp, replacement: string}>} patterns
+         */
+        registerPiiPatterns(patterns) {
+            // SECURITY: H3
+            for (const { pattern } of patterns) {
+                if (pattern && pattern.source) {
+                    // Best-effort heuristic to detect ReDoS
+                    // Reject nested quantifiers like (a+)+, (a*)*, (a?)+ which cause ReDoS
+                    if (/(\([^)]*[+*?]\)[+*?])/.test(pattern.source)) {
+                        throw new Error(`[Pulsar] Rejected ReDoS-vulnerable PII pattern: ${pattern.source}`);
+                    }
+
+                    // Adversarial string performance test
+                    const adversarialStr = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"; // 50 chars
+                    const t0 = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+                    pattern.test(adversarialStr);
+                    const t1 = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+                    if (t1 - t0 > 10) {
+                        throw new Error(`[Pulsar] Rejected slow PII pattern: ${pattern.source}`);
+                    }
                 }
             }
-        }
-        this._extraPatterns = this._extraPatterns.concat(patterns);
-    },
+            this._extraPatterns = this._extraPatterns.concat(patterns);
+        },
 
-    /**
-     * Remove PII patterns from error messages.
-     */
-    sanitizeMessage(msg) {
-        if (!msg) return "";
-        let v = String(msg);
+        /**
+         * Remove PII patterns from error messages.
+         */
+        sanitizeMessage(msg) {
+            if (!msg) return "";
+            let v = String(msg);
 
-        // Email addresses
-        v = v.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL_REDACTED]');
+            // Email addresses
+            v = v.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL_REDACTED]');
 
-        // Credit cards (groupings of 4 digits)
-        v = v.replace(/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, '[CARD_REDACTED]');
+            // Credit cards (groupings of 4 digits)
+            v = v.replace(/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, '[CARD_REDACTED]');
 
-        // Phone numbers (simple US/International format)
-        v = v.replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, '[PHONE_REDACTED]');
+            // Phone numbers (simple US/International format)
+            v = v.replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, '[PHONE_REDACTED]');
 
-        // Generic tokens (long alphanumeric strings 32+ chars)
-        v = v.replace(/\b[A-Za-z0-9]{32,}\b/g, '[TOKEN_REDACTED]');
+            // Generic tokens (long alphanumeric strings 32+ chars)
+            v = v.replace(/\b[A-Za-z0-9]{32,}\b/g, '[TOKEN_REDACTED]');
 
-        // Provider-registered PII patterns
-        for (const { pattern, replacement } of this._extraPatterns) {
-            v = v.replace(pattern, replacement);
-        }
-
-        return v.substring(0, 1000);
-    },
-
-    /**
-     * Alias for backward compatibility — capture.js calls redactPII.
-     */
-    redactPII(msg) {
-        return this.sanitizeMessage(msg);
-    },
-
-    // SECURITY: C2 - Only apply PII redaction to known fields that can contain user data (Allowlist approach)
-    _piiFields: new Set(['message', 'url', 'response_snippet', 'path', 'endpoint', 'body', 'selector', 'textContent', 'error_message', 'product_ref']),
-
-    /**
-     * Recursively traverse an object and sanitize only allowed fields that may contain PII.
-     * This ensures PII is stripped from event payloads before sending while preserving
-     * structure and identifiers.
-     */
-    sanitize(payload) {
-        if (!payload || typeof payload !== 'object') {
-            return payload; // Primitive value or null/undefined
-        }
-
-        // Avoid mutating Dates, RegExps, etc.
-        if (Object.prototype.toString.call(payload) !== '[object Object]' && !Array.isArray(payload)) {
-            return payload;
-        }
-
-        if (Array.isArray(payload)) {
-            return payload.map(item => this.sanitize(item));
-        }
-
-        const sanitized = {};
-
-        for (const key of Object.keys(payload)) {
-            const value = payload[key];
-            if (typeof value === 'string' && this._piiFields.has(key)) {
-                sanitized[key] = this.redactPII(value);
-            } else if (typeof value === 'object' && value !== null) {
-                sanitized[key] = this.sanitize(value);
-            } else {
-                sanitized[key] = value;
+            // Provider-registered PII patterns
+            for (const { pattern, replacement } of this._extraPatterns) {
+                v = v.replace(pattern, replacement);
             }
-        }
-        return sanitized;
-    },
 
-    /**
-     * Limit stack trace depth and remove file paths.
-     */
+            return v.substring(0, 1000);
+        },
+
+        /**
+         * Alias for backward compatibility — capture.js calls redactPII.
+         */
+        redactPII(msg) {
+            return this.sanitizeMessage(msg);
+        },
+
+        // SECURITY: C2 - Only apply PII redaction to known fields that can contain user data (Allowlist approach)
+        _piiFields: new Set(['message', 'url', 'response_snippet', 'path', 'endpoint', 'body', 'selector', 'textContent', 'error_message', 'product_ref', 'email']), // SECURITY: H1 (added email to allowlist)
+
+        /**
+         * Recursively traverse an object and sanitize only allowed fields that may contain PII.
+         * This ensures PII is stripped from event payloads before sending while preserving
+         * structure and identifiers.
+         */
+        sanitize(payload) {
+            if (!payload || typeof payload !== 'object') {
+                return payload; // Primitive value or null/undefined
+            }
+
+            // Avoid mutating Dates, RegExps, etc.
+            if (Object.prototype.toString.call(payload) !== '[object Object]' && !Array.isArray(payload)) {
+                return payload;
+            }
+
+            if (Array.isArray(payload)) {
+                return payload.map(item => this.sanitize(item));
+            }
+
+            const sanitized = {};
+
+            for (const key of Object.keys(payload)) {
+                const value = payload[key];
+                if (typeof value === 'string' && this._piiFields.has(key)) {
+                    sanitized[key] = this.redactPII(value);
+                } else if (typeof value === 'object' && value !== null) {
+                    sanitized[key] = this.sanitize(value);
+                } else {
+                    sanitized[key] = value;
+                }
+            }
+            return sanitized;
+        },
+
+        /**
+         * Remove query params from URLs.
+         */
+        sanitizeUrl(url) {
+            if (!url) return "";
+            try {
+                const parsed = new URL(url, 'http://example.com');
+                if (url.startsWith('/')) {
+                    return parsed.pathname.substring(0, 500);
+                }
+                return (parsed.origin + parsed.pathname).substring(0, 500);
+            } catch (_e) {
+                return String(url).substring(0, 500);
+            }
+        },
+
+        /**
+         * Remove IDs from API endpoints for grouping.
+         */
+        sanitizeApiEndpoint(url) {
+            if (!url) return null;
+            let v = String(url).split(/[?#]/)[0];
+            v = v.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, '{uuid}');
+            v = v.replace(/\/\d{6,}/g, '/{id}');
+            v = v.replace(/\/baskets\/[a-z0-9]+/gi, '/baskets/{basket_id}');
+            v = v.replace(/\/orders\/[a-z0-9]+/gi, '/orders/{order_id}');
+            return v.substring(0, 200);
+        },
+
+        /**
+         * Reset extra patterns — used in tests.
+         * @internal
+         */
+        _resetPiiPatterns() {
+            this._extraPatterns = [];
+        }
+    };
+}
+
+// Preserve existing static methods for backwards compatibility
+export const Sanitizers = {
+    // Keep stateless sanitizeStack
     sanitizeStack(stack) {
         if (!stack) return null;
         const v = String(stack);

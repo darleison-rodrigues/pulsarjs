@@ -2,8 +2,6 @@
  * PulsarJS — Scope Management
  * Isolated context per async boundary. Prevents PII and tag bleeding across operations.
  */
-import { Sanitizers } from '../utils/sanitizers.js';
-
 export class Scope {
     constructor() {
         this._breadcrumbs = [];
@@ -14,15 +12,7 @@ export class Scope {
     }
 
     setTag(key, value) { this._tags[key] = value; return this; }
-    setUser(user) {
-        if (user && user.email) {
-            // SECURITY: H1
-            this._user = { ...user, email: Sanitizers.sanitizeMessage(user.email) };
-        } else {
-            this._user = user;
-        }
-        return this;
-    }
+    setUser(user) { this._user = user; return this; }
     setExtra(key, value) { this._extra[key] = value; return this; }
     setMaxBreadcrumbs(max) { this._maxBreadcrumbs = max; return this; }
 

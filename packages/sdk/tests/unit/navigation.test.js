@@ -54,6 +54,8 @@ describe('Product View Tracking (PUL-030)', () => {
         // Since setupNavigationTracking is async and emits initial page view, let's test a mock emission
         
         const { emitPageView } = await import('../../src/collectors/navigation.js');
+        const { createSanitizer } = await import('../../src/utils/sanitizers.js');
+        mockState.sanitizer = createSanitizer();
         
         const pageInfo = { type: 'PDP', product_ref: 'item-1' };
         
@@ -76,6 +78,9 @@ describe('Product View Tracking (PUL-030)', () => {
 
     it('redacts PII from product_ref', async () => {
         const { emitPageView } = await import('../../src/collectors/navigation.js');
+        const { createSanitizer } = await import('../../src/utils/sanitizers.js');
+        mockState.sanitizer = createSanitizer();
+
         const pageInfo = { type: 'PDP', product_ref: 'user@example.com' };
         
         // @ts-expect-error - internal method

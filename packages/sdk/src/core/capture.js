@@ -14,6 +14,7 @@
  *   PUL-030 — QUEUE_OVERFLOW context captured at drop time, not flush time
  *   PUL-032 — module-level `state` singleton eliminated; each pipeline owns its closure
  */
+
 import { Sanitizers } from '../utils/sanitizers.js';
 
 const MAX_QUEUE_SIZE = 50;
@@ -186,12 +187,12 @@ export function createCapturePipeline(sharedState) {
             storefront_type: state.config.storefrontType,
             site_id: state.config.siteId,
             session_id: state.sessionID,
-            url: Sanitizers.sanitizeUrl(window.location.href),
+            url: state.sanitizer.sanitizeUrl(window.location.href),
             timestamp: new Date().toISOString(),
             event_type: errorData.event_type || errorData.error_type || 'UNKNOWN',
-            message: Sanitizers.redactPII(errorData.message || 'Unknown error'),
+            message: state.sanitizer.redactPII(errorData.message || 'Unknown error'),
             response_snippet: errorData.response_snippet
-                ? Sanitizers.redactPII(errorData.response_snippet)
+                ? state.sanitizer.redactPII(errorData.response_snippet)
                 : null,
             severity: errorData.severity || 'error',
             is_blocking: errorData.is_blocking || false,
@@ -353,7 +354,7 @@ export function createCapturePipeline(sharedState) {
         state.productRefs = [];
 
         // SECURITY: C2
-        const sanitizedBatch = Sanitizers.sanitize(batch);
+        const sanitizedBatch = state.sanitizer.sanitize(batch);
         if (!sanitizedBatch) return;
         const blob = new Blob([JSON.stringify(sanitizedBatch)], { type: 'application/json' });
         navigator.sendBeacon(state.config.endpoint, blob);
@@ -417,7 +418,7 @@ export function createCapturePipeline(sharedState) {
         const endpoint = state.config.endpoint;
         const nativeFetch = state.originalFetch || window.fetch;
         // SECURITY: C2
-        const sanitizedBatch = Sanitizers.sanitize(batch);
+        const sanitizedBatch = state.sanitizer.sanitize(batch);
         if (!sanitizedBatch) return;
         const payloadStr = JSON.stringify(sanitizedBatch);
 
