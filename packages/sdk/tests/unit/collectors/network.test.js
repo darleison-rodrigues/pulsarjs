@@ -16,7 +16,9 @@ describe('setupFetchInterceptor', () => {
         });
         vi.stubGlobal('fetch', originalFetch);
 
+        const { createSanitizer } = SanitizersModule;
         mockState = {
+            sanitizer: createSanitizer(),
             config: {
                 endpoint: 'https://ingest.pulsar.test/v1/events',
                 endpointFilter: /^https:\/\/api\.example\.com/,

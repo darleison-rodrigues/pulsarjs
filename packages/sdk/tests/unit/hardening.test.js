@@ -55,13 +55,15 @@ describe('SDK Hardening - Defensive Coding', () => {
         vi.stubGlobal('navigator', { sendBeacon: vi.fn().mockReturnValue(false) });
         const mockFetch = vi.fn().mockResolvedValue({ ok: true });
         vi.stubGlobal('fetch', mockFetch);
+        const { createSanitizer } = await import('../../src/utils/sanitizers.js');
 
         const state = {
             config: { debug: false, endpoint: 'https://pulsar.test/ingest' },
             sessionID: 'sess-1',
             queue: [{ event_type: 'TEST_EVENT' }],
             droppedSinceLastFlush: 0,
-            originalFetch: mockFetch
+            originalFetch: mockFetch,
+            sanitizer: createSanitizer()
         };
 
         const pipeline = createCapturePipeline(state);
@@ -132,13 +134,15 @@ describe('SDK Hardening - Defensive Coding', () => {
         vi.stubGlobal('navigator', { sendBeacon: undefined });
         const mockFetch = vi.fn().mockResolvedValue({ ok: true });
         vi.stubGlobal('fetch', mockFetch);
+        const { createSanitizer } = await import('../../src/utils/sanitizers.js');
 
         const state = {
             config: { debug: false, endpoint: 'https://pulsar.test/ingest' },
             sessionID: 'sess-1',
             queue: [{ event_type: 'TEST_EVENT' }],
             droppedSinceLastFlush: 0,
-            originalFetch: mockFetch
+            originalFetch: mockFetch,
+            sanitizer: createSanitizer()
         };
 
         const pipeline = createCapturePipeline(state);
@@ -149,6 +153,7 @@ describe('SDK Hardening - Defensive Coding', () => {
     });
 
     it('should send original payload if beforeSend throws', async () => {
+        const { createSanitizer } = await import('../../src/utils/sanitizers.js');
         const state = {
             enabled: true,
             isInitialized: true,
@@ -161,7 +166,8 @@ describe('SDK Hardening - Defensive Coding', () => {
             globalScope: { getScopeData: () => ({}) },
             extractPlatformContext: () => ({}),
             captureEnvironment: () => ({}),
-            device: {}
+            device: {},
+            sanitizer: createSanitizer()
         };
 
         const pipeline = createCapturePipeline(state);
@@ -174,6 +180,7 @@ describe('SDK Hardening - Defensive Coding', () => {
 
     it('should send original payload if beforeSend times out', async () => {
         vi.useFakeTimers();
+        const { createSanitizer } = await import('../../src/utils/sanitizers.js');
         const state = {
             enabled: true,
             isInitialized: true,
@@ -191,7 +198,8 @@ describe('SDK Hardening - Defensive Coding', () => {
             globalScope: { getScopeData: () => ({}) },
             extractPlatformContext: () => ({}),
             captureEnvironment: () => ({}),
-            device: {}
+            device: {},
+            sanitizer: createSanitizer()
         };
 
         const pipeline = createCapturePipeline(state);

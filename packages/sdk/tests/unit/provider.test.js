@@ -82,10 +82,12 @@ describe('Platform Provider Resolution', () => {
         expect(provider.extractContext()).toEqual({});
     });
 
-    it('provider piiPatterns can be registered via Sanitizers', () => {
+    it('provider piiPatterns can be registered via Sanitizers', async () => {
         const provider = resolveProvider('sfcc');
-        Sanitizers.registerPiiPatterns(provider.piiPatterns);
-        const result = Sanitizers.sanitizeMessage('Error for abcCustomer-ID-12345');
+        const { createSanitizer } = await import('../../src/utils/sanitizers.js');
+        const sanitizer = createSanitizer();
+        sanitizer.registerPiiPatterns(provider.piiPatterns);
+        const result = sanitizer.sanitizeMessage('Error for abcCustomer-ID-12345');
         expect(result).toContain('[CUSTOMER_ID_REDACTED]');
         expect(result).not.toContain('Customer-ID-12345');
     });

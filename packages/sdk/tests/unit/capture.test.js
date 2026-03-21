@@ -32,7 +32,13 @@ describe('Pulsar Capture Pipeline', () => {
             droppedSinceLastFlush: 0,
             extractPlatformContext: () => ({}),
             captureEnvironment: () => ({}),
-            device: {}
+            device: {},
+            sanitizer: {
+                sanitize: (v) => v,
+                redactPII: (v) => v,
+                sanitizeUrl: (v) => v,
+                sanitizeApiEndpoint: (v) => v
+            }
         };
 
         const pipeline = createCapturePipeline(mockState);
@@ -64,7 +70,13 @@ describe('Pulsar Capture Pipeline', () => {
             queue: [{ event_type: 'PAGE_VIEW' }],
             productRefs: ['prod-3'],
             droppedEventsCount: 0,
-            droppedSinceLastFlush: 0
+            droppedSinceLastFlush: 0,
+            sanitizer: {
+                sanitize: (v) => v,
+                redactPII: (v) => v,
+                sanitizeUrl: (v) => v,
+                sanitizeApiEndpoint: (v) => v
+            }
         };
 
         const pipeline = createCapturePipeline(mockState);

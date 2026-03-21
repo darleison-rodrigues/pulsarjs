@@ -19,7 +19,7 @@ import { setupScrollObserver, setupRageClickDetector } from './collectors/intera
 import { resolveProvider } from './providers/provider.js';
 import { captureEnvironment, extractCampaigns } from './utils/environment.js';
 import { buildDeviceInfo } from './utils/device.js';
-import { Sanitizers } from './utils/sanitizers.js';
+import { createSanitizer } from './utils/sanitizers.js';
 
 const Pulsar = (function () {
 
@@ -37,8 +37,11 @@ const Pulsar = (function () {
             sessionID = persisted.sessionID;
         }
 
+        const sanitizer = createSanitizer();
+
         // Shared state object — passed to all collectors
         const state = {
+            get sanitizer() { return sanitizer; },
             get config() { return config; },
             get globalScope() { return globalScope; },
             get sessionID() { return sessionID; },
@@ -165,7 +168,7 @@ const Pulsar = (function () {
 
                     // Register provider PII patterns
                     if (provider.piiPatterns && provider.piiPatterns.length > 0) {
-                        Sanitizers.registerPiiPatterns(provider.piiPatterns);
+                        sanitizer.registerPiiPatterns(provider.piiPatterns);
                     }
 
                     // Bind extractPlatformContext with resolved provider

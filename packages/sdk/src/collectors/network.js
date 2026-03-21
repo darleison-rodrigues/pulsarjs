@@ -3,8 +3,6 @@
  * Monkey-patches fetch and XHR to capture API failures, latency, network errors,
  * and commerce actions (cart_add, checkout, search).
  */
-import { Sanitizers } from '../utils/sanitizers.js';
-
 /**
  * Detect commerce action from request method + URL using config-driven patterns.
  * PUL-027: reads from config.commerceActions instead of hardcoded patterns.
@@ -53,7 +51,7 @@ export function setupFetchInterceptor(state) {
         try {
             method = (args[1]?.method || 'GET').toUpperCase();
             if (args[1] && args[1].body && typeof args[1].body === 'string') {
-                bodySnippet = Sanitizers.redactPII(args[1].body).substring(0, 500);
+                bodySnippet = state.sanitizer.redactPII(args[1].body).substring(0, 500);
             }
             startTime = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
         } catch (e) {
@@ -70,7 +68,7 @@ export function setupFetchInterceptor(state) {
                     capture({
                         event_type: "NETWORK_ERROR",
                         message: error.message,
-                        metadata: { endpoint: Sanitizers.sanitizeApiEndpoint(requestUrl), method },
+                        metadata: { endpoint: state.sanitizer.sanitizeApiEndpoint(requestUrl), method },
                         severity: "error",
                         is_blocking: true
                     });
@@ -91,9 +89,9 @@ export function setupFetchInterceptor(state) {
                 const failedAction = detectCommerceAction(method, requestUrl, config.commerceActions);
                 const failedEventId = await capture({
                     event_type: "API_FAILURE",
-                    message: `API HTTP ${response.status}: ${Sanitizers.sanitizeApiEndpoint(response.url)}`,
+                    message: `API HTTP ${response.status}: ${state.sanitizer.sanitizeApiEndpoint(response.url)}`,
                     response_snippet: bodySnippet,
-                    metadata: { status: response.status, endpoint: Sanitizers.sanitizeApiEndpoint(response.url), method, duration_ms: Math.round(duration) },
+                    metadata: { status: response.status, endpoint: state.sanitizer.sanitizeApiEndpoint(response.url), method, duration_ms: Math.round(duration) },
                     severity: response.status >= 500 ? "error" : "warning",
                     is_blocking: false,
                     ...(failedAction && state.lastCommerceEventId
@@ -115,7 +113,7 @@ export function setupFetchInterceptor(state) {
                         message: `Commerce: ${commerceAction}`,
                         metadata: {
                             action: commerceAction,
-                            endpoint: Sanitizers.sanitizeApiEndpoint(requestUrl),
+                            endpoint: state.sanitizer.sanitizeApiEndpoint(requestUrl),
                             method,
                             duration_ms: Math.round(duration)
                         },
@@ -134,8 +132,8 @@ export function setupFetchInterceptor(state) {
                 if (duration > config.slowApiThreshold) {
                     capture({
                         event_type: "API_LATENCY",
-                        message: `Slow API: ${Sanitizers.sanitizeApiEndpoint(response.url)}`,
-                        metadata: { endpoint: Sanitizers.sanitizeApiEndpoint(response.url), method, duration_ms: Math.round(duration) },
+                        message: `Slow API: ${state.sanitizer.sanitizeApiEndpoint(response.url)}`,
+                        metadata: { endpoint: state.sanitizer.sanitizeApiEndpoint(response.url), method, duration_ms: Math.round(duration) },
                         severity: "info",
                         is_blocking: false,
                         ...(commerceEventId ? { caused_by: commerceEventId, edge_hint: 'degraded_by' } : {})
@@ -187,8 +185,8 @@ export function setupXHRInterceptor(state) {
                         if (this.status === 0) {
                             capture({
                                 event_type: "NETWORK_ERROR",
-                                message: `XHR Network Error: ${Sanitizers.sanitizeApiEndpoint(this._url)}`,
-                                metadata: { method: this._method, endpoint: Sanitizers.sanitizeApiEndpoint(this._url), duration_ms: Math.round(duration) },
+                                message: `XHR Network Error: ${state.sanitizer.sanitizeApiEndpoint(this._url)}`,
+                                metadata: { method: this._method, endpoint: state.sanitizer.sanitizeApiEndpoint(this._url), duration_ms: Math.round(duration) },
                                 severity: "error",
                                 is_blocking: false
                             });
@@ -196,14 +194,14 @@ export function setupXHRInterceptor(state) {
                             // PUL-028: blocked_by edge — commerce failed after prior commerce event
                             let bodySnippet = null;
                             if (body && typeof body === 'string') {
-                                bodySnippet = Sanitizers.redactPII(body).substring(0, 500);
+                                bodySnippet = state.sanitizer.redactPII(body).substring(0, 500);
                             }
                             const failedAction = detectCommerceAction(this._method, this._url, config.commerceActions);
                             const failedEventId = await capture({
                                 event_type: "API_FAILURE",
-                                message: `XHR HTTP ${this.status}: ${Sanitizers.sanitizeApiEndpoint(this._url)}`,
+                                message: `XHR HTTP ${this.status}: ${state.sanitizer.sanitizeApiEndpoint(this._url)}`,
                                 response_snippet: bodySnippet,
-                                metadata: { status: this.status, endpoint: Sanitizers.sanitizeApiEndpoint(this._url), method: this._method, duration_ms: Math.round(duration) },
+                                metadata: { status: this.status, endpoint: state.sanitizer.sanitizeApiEndpoint(this._url), method: this._method, duration_ms: Math.round(duration) },
                                 severity: this.status >= 500 ? "error" : "warning",
                                 is_blocking: false,
                                 ...(failedAction && state.lastCommerceEventId
@@ -225,7 +223,7 @@ export function setupXHRInterceptor(state) {
                                     message: `Commerce: ${commerceAction}`,
                                     metadata: {
                                         action: commerceAction,
-                                        endpoint: Sanitizers.sanitizeApiEndpoint(this._url),
+                                        endpoint: state.sanitizer.sanitizeApiEndpoint(this._url),
                                         method: this._method,
                                         duration_ms: Math.round(duration)
                                     },
@@ -244,8 +242,8 @@ export function setupXHRInterceptor(state) {
                             if (duration > config.slowApiThreshold) {
                                 capture({
                                     event_type: "API_LATENCY",
-                                    message: `Slow XHR: ${Sanitizers.sanitizeApiEndpoint(this._url)}`,
-                                    metadata: { endpoint: Sanitizers.sanitizeApiEndpoint(this._url), method: this._method, duration_ms: Math.round(duration) },
+                                    message: `Slow XHR: ${state.sanitizer.sanitizeApiEndpoint(this._url)}`,
+                                    metadata: { endpoint: state.sanitizer.sanitizeApiEndpoint(this._url), method: this._method, duration_ms: Math.round(duration) },
                                     severity: "info",
                                     is_blocking: false,
                                     ...(commerceEventId ? { caused_by: commerceEventId, edge_hint: 'degraded_by' } : {})
