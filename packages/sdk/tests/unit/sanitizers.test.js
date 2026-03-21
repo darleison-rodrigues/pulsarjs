@@ -56,6 +56,33 @@ describe('Sanitizers', () => {
             expect(Sanitizers.sanitizeMessage(msg)).toBe("My [SSN_REDACTED] is private.");
         });
 
+        it('should reject ReDoS-vulnerable PII patterns', () => {
+            expect(() => {
+                Sanitizers.registerPiiPatterns([
+                    { pattern: /(a+)+$/, replacement: '[REDACTED]' }
+                ]);
+            }).toThrow('Rejected ReDoS-vulnerable PII pattern');
+
+            expect(() => {
+                Sanitizers.registerPiiPatterns([
+                    { pattern: /(a*)*$/, replacement: '[REDACTED]' }
+                ]);
+            }).toThrow('Rejected ReDoS-vulnerable PII pattern');
+
+            expect(() => {
+                Sanitizers.registerPiiPatterns([
+                    { pattern: /(a?)+$/, replacement: '[REDACTED]' }
+                ]);
+            }).toThrow('Rejected ReDoS-vulnerable PII pattern');
+
+            // Should allow normal patterns
+            expect(() => {
+                Sanitizers.registerPiiPatterns([
+                    { pattern: /normal(pattern)+/, replacement: '[REDACTED]' }
+                ]);
+            }).not.toThrow();
+        });
+
         it('should truncate messages longer than 1000 characters', () => {
             // Need a non-token string to avoid generic token regex triggering
             // since A{1500} will match [A-Za-z0-9]{32,} and be replaced with [TOKEN_REDACTED]

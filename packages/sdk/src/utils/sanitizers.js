@@ -4,15 +4,25 @@
  * Provider-extensible via registerPiiPatterns().
  */
 
-let _extraPatterns = [];
-
 export const Sanitizers = {
+    // SECURITY: H2
+    _extraPatterns: [],
+
     /**
      * Register additional PII patterns from a platform provider.
      * @param {Array<{pattern: RegExp, replacement: string}>} patterns
      */
     registerPiiPatterns(patterns) {
-        _extraPatterns = _extraPatterns.concat(patterns);
+        // SECURITY: H3
+        for (const { pattern } of patterns) {
+            if (pattern && pattern.source) {
+                // Reject nested quantifiers like (a+)+, (a*)*, (a?)+ which cause ReDoS
+                if (/(\([^)]*[+*?]\)[+*?])/.test(pattern.source)) {
+                    throw new Error(`[Pulsar] Rejected ReDoS-vulnerable PII pattern: ${pattern.source}`);
+                }
+            }
+        }
+        this._extraPatterns = this._extraPatterns.concat(patterns);
     },
 
     /**
@@ -35,7 +45,7 @@ export const Sanitizers = {
         v = v.replace(/\b[A-Za-z0-9]{32,}\b/g, '[TOKEN_REDACTED]');
 
         // Provider-registered PII patterns
-        for (const { pattern, replacement } of _extraPatterns) {
+        for (const { pattern, replacement } of this._extraPatterns) {
             v = v.replace(pattern, replacement);
         }
 
@@ -145,6 +155,6 @@ export const Sanitizers = {
      * @internal
      */
     _resetPiiPatterns() {
-        _extraPatterns = [];
+        this._extraPatterns = [];
     }
 };
