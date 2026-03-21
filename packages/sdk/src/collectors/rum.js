@@ -120,92 +120,35 @@ export function setupPerformanceObserver(state) {
 }
 
 /**
- * Monkey-patch history.pushState / history.replaceState and listen to popstate
- * to detect every client-side route change.
+ * Listen to pulsar:route-change to detect client-side route changes.
  *
- * On each qualifying navigation (pathname change only):
+ * On each qualifying navigation:
  *   1. captureRUM(state, departingUrl) — flush departing page's metrics
  *   2. resetWebVitals()               — zero accumulators for next page
  *
- * Platform notes:
- *   PWA Kit — always changes pathname on route change → always fires ✅
- *   SFRA    — uses pushState for mini-cart/quickview/filters (query/hash only)
- *             → pathname guard prevents spurious flushes ✅
- *   SFRA/SiteGenesis hard nav — full reload; browser re-initialises webVitals ✅
+ * Note: The pathname guard (which prevents spurious flushes for query/hash changes)
+ * lives in `navigation.js`. This creates an implicit coupling with the
+ * `pulsar:route-change` pattern.
  *
  * @param {object} state - Shared SDK state
  */
 function _installSpaNavigationHook(state) {
-    if (state.originalPushState) return; // idempotent
+    if (state.spaNavigationHandler) return; // idempotent
 
-    // Track current href explicitly so we always have the PRE-navigation URL.
-    // window.location is updated synchronously by pushState/replaceState before
-    // any callback fires — relying on window.location.href inside the handler
-    // would give us the destination URL, producing wrong RUM attribution.
-    let currentHref = window.location.href;
+    function onSpaNavigate(event) {
+        const { departingUrl } = event.detail;
 
-    // ── Pathname-change guard ─────────────────────────────────────────────────
-    // isRouteChange compares newUrl's pathname against currentHref's pathname
-    // (the pre-navigation path). window.location may already be updated by the
-    // time this runs for pushState — comparing against currentHref is correct.
-    function isRouteChange(newUrl) {
-        if (newUrl == null) return false;
-        try {
-            const next = new URL(String(newUrl), window.location.origin);
-            const current = new URL(currentHref, window.location.origin);
-            return next.pathname !== current.pathname;
-        } catch (_) {
-            return false; // malformed URL — do not flush
-        }
-    }
-
-    // NOTE: captureRUM is declared as `export function` below this function in
-    // the module. Function declarations are hoisted to module scope, so calling
-    // captureRUM from here is safe at runtime. If captureRUM is ever refactored
-    // to `const captureRUM = ...` (an arrow/const), hoisting is lost and this
-    // call will throw a TDZ ReferenceError — do not make that change silently.
-    function onSpaNavigate(newUrl, departingUrl) {
-        if (!isRouteChange(newUrl)) {
-            currentHref = window.location.href; // keep tracking in sync
-            return;
-        }
         captureRUM(state, departingUrl); // attributed to the page we are leaving
         resetWebVitals();
-        currentHref = window.location.href; // update after navigation
+
         if (state.config.debug) {
             // eslint-disable-next-line no-console
             console.log('[Pulsar] SPA navigation — web vitals flushed and reset.');
         }
     }
 
-    // popstate fires AFTER the browser updates window.location (back/forward).
-    // Use currentHref (pre-navigation) as the departing URL before updating.
-    function onPopState() {
-        const departingUrl = currentHref;
-        currentHref = window.location.href;
-        onSpaNavigate(window.location.href, departingUrl);
-    }
-
-    state.originalPushState = history.pushState.bind(history);
-    state.originalReplaceState = history.replaceState.bind(history);
-    state.spaNavigationHandler = onPopState;
-
-    // pushState / replaceState: signature is (state, title, url).
-    // Capture departingUrl BEFORE calling the original — window.location updates
-    // synchronously inside the call and would give us the arriving URL too late.
-    history.pushState = function (...args) {
-        const departingUrl = currentHref;
-        state.originalPushState(...args);
-        onSpaNavigate(args[2], departingUrl);
-    };
-
-    history.replaceState = function (...args) {
-        const departingUrl = currentHref;
-        state.originalReplaceState(...args);
-        onSpaNavigate(args[2], departingUrl);
-    };
-
-    window.addEventListener('popstate', state.spaNavigationHandler);
+    state.spaNavigationHandler = onSpaNavigate;
+    window.addEventListener('pulsar:route-change', state.spaNavigationHandler);
 }
 
 /**
