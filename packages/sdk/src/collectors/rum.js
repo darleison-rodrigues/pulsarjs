@@ -101,7 +101,7 @@ export function setupPerformanceObserver(state) {
         }).observe({ type: 'layout-shift', buffered: true });
 
         // TTFB + Load Time (initial hard load only — SPA navigations via hook)
-        window.addEventListener('load', () => {
+        state._rumLoadHandler = () => {
             setTimeout(() => {
                 if (window.performance && window.performance.timing) {
                     const t = window.performance.timing;
@@ -109,7 +109,8 @@ export function setupPerformanceObserver(state) {
                     webVitals.load_time_ms = Math.max(0, t.loadEventEnd - t.navigationStart);
                 }
             }, 0);
-        });
+        };
+        window.addEventListener('load', state._rumLoadHandler);
 
     } catch (e) {
         // eslint-disable-next-line no-console

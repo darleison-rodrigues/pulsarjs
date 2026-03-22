@@ -283,6 +283,9 @@ const Pulsar = (function () {
                     // PUL-034: remove pulsar:route-change listener
                     if (state.spaNavigationHandler) { window.removeEventListener('pulsar:route-change', state.spaNavigationHandler); state.spaNavigationHandler = null; }
 
+                    // SECURITY: M3
+                    if (state._rumLoadHandler) { window.removeEventListener('load', state._rumLoadHandler); state._rumLoadHandler = null; }
+
                     // Teardown navigation tracking
                     if (state._navOriginalPushState) { history.pushState = state._navOriginalPushState; state._navOriginalPushState = null; }
                     if (state._navOriginalReplaceState) { history.replaceState = state._navOriginalReplaceState; state._navOriginalReplaceState = null; }
