@@ -17,9 +17,25 @@ export function getPersistedSession() {
     return null;
 }
 
+let _persistTimer = null;
+
+// PERF: P2 — debounce synchronous storage writes
+// eliminates synchronous storage writes on every event loop mutation
+
 export function persistSession(state) {
     try {
-        if (typeof window !== 'undefined' && window.sessionStorage) {
+        if (typeof window === 'undefined' || !window.sessionStorage) return;
+    } catch (_e) {
+        return;
+    }
+
+    if (_persistTimer) {
+        clearTimeout(_persistTimer);
+    }
+
+    _persistTimer = setTimeout(() => {
+        _persistTimer = null;
+        try {
             const data = {
                 sessionID: state.sessionID,
                 sessionStartedAt: state.sessionStartedAt,
@@ -35,7 +51,42 @@ export function persistSession(state) {
                 _droppedEventsCount: state._droppedEventsCount
             };
             window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
+        } catch (_e) {
+            // ignore
         }
+    }, 100);
+}
+
+/**
+ * Expose synchronously for page unload / tear down events
+ */
+export function persistSessionSync(state) {
+    try {
+        if (typeof window === 'undefined' || !window.sessionStorage) return;
+    } catch (_e) {
+        return;
+    }
+
+    if (_persistTimer) {
+        clearTimeout(_persistTimer);
+        _persistTimer = null;
+    }
+    try {
+        const data = {
+            sessionID: state.sessionID,
+            sessionStartedAt: state.sessionStartedAt,
+            lastErrorEventId: state.lastErrorEventId,
+            lastCommerceEventId: state.lastCommerceEventId,
+            lastCommerceAction: state.lastCommerceAction,
+            lastFailedCommerceAction: state.lastFailedCommerceAction,
+            firstPageViewEventId: state.firstPageViewEventId,
+            entryPageType: state.entryPageType,
+            entryReferrerType: state.entryReferrerType,
+            entryCampaignSource: state.entryCampaignSource,
+            pageCount: state.pageCount,
+            _droppedEventsCount: state._droppedEventsCount
+        };
+        window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
     } catch (_e) {
         // ignore
     }

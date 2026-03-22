@@ -9,7 +9,7 @@
  */
 import { Scope } from './core/scope.js';
 import { DEFAULT_CONFIG, validateConfig } from './core/config.js';
-import { generateSessionID, getPersistedSession, persistSession } from './core/session.js';
+import { generateSessionID, getPersistedSession, persistSession, persistSessionSync } from './core/session.js';
 import { createCapturePipeline } from './core/capture.js';
 import { setupErrorHandlers } from './collectors/errors.js';
 import { setupFetchInterceptor, setupXHRInterceptor } from './collectors/network.js';
@@ -213,6 +213,7 @@ const Pulsar = (function () {
                         state.visibilityHandler = () => {
                             try {
                                 if (document.visibilityState === 'hidden') {
+                                    persistSessionSync(state);
                                     captureRUM(state);
                                     // flushOnHide bypasses the isFlushing concurrency guard.
                                     // This is intentional: on page hide, events sitting in
