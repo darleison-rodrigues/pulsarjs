@@ -229,13 +229,13 @@ export function createCapturePipeline(sharedState) {
                 if (e.message === 'timeout') {
                     const ms = state.config.beforeSendTimeout ?? 2000;
                     // eslint-disable-next-line no-console
-                    if (state.config.debug) console.warn(`[Pulsar] beforeSend timed out after ${ms}ms`);
+                        if (state.config?.debug) console.warn(`[Pulsar] beforeSend timed out after ${ms}ms`);
                     payload = originalPayload; // Fallback to original payload
                     if (state.config.allowUnconfirmedConsent) {
                         payload.metadata = payload.metadata || {};
                         payload.metadata.consent_unconfirmed = true;
                     } else {
-                        if (state.config.debug) {
+                            if (state.config?.debug) {
                             // eslint-disable-next-line no-console
                             console.log('[Pulsar] Event dropped due to strict consent fallback');
                             return null;
@@ -244,7 +244,7 @@ export function createCapturePipeline(sharedState) {
                     }
                 } else {
                     // eslint-disable-next-line no-console
-                    if (state.config.debug) console.warn('[Pulsar] beforeSend hook threw an error', e);
+                        if (state.config?.debug) console.warn('[Pulsar] beforeSend hook threw an error', e);
                     payload = originalPayload; // Fallback to original payload on throw
                 }
             } finally {
@@ -254,7 +254,7 @@ export function createCapturePipeline(sharedState) {
 
         if (payload === null) {
             // eslint-disable-next-line no-console
-            if (state.config.debug) console.log('[Pulsar] Event dropped by beforeSend hook');
+                if (state.config?.debug) console.log('[Pulsar] Event dropped by beforeSend hook');
             return null;
         }
 
@@ -432,7 +432,7 @@ export function createCapturePipeline(sharedState) {
             // sendBeacon returned false — browser queue full or context restricted.
             // Fall through to fetch with retries.
             // eslint-disable-next-line no-console
-            if (state.config.debug) console.warn('[Pulsar] sendBeacon rejected. Falling back to fetch.');
+            if (state.config?.debug) console.warn('[Pulsar] sendBeacon rejected. Falling back to fetch.');
         }
 
         // ── fetch fallback with retry ─────────────────────────────────────────
@@ -453,12 +453,12 @@ export function createCapturePipeline(sharedState) {
                     keepalive: true
                 });
                 success = res.ok;
-                if (!success && state.config.debug) {
+                if (!success && state.config?.debug) {
                     // eslint-disable-next-line no-console
                     console.warn(`[Pulsar] Ingest returned HTTP ${res.status} on attempt ${attempt}/${maxRetries}.`);
                 }
             } catch (e) {
-                if (state.config.debug) {
+                if (state.config?.debug) {
                     // eslint-disable-next-line no-console
                     console.warn(`[Pulsar] fetch attempt ${attempt}/${maxRetries} failed:`, e.message);
                 }
@@ -477,7 +477,7 @@ export function createCapturePipeline(sharedState) {
             //   rescuable    = events from the failed batch        (older)
             //   combined     = [older … newer]  (time-ordered oldest→newest)
             //   .slice(-N)   = keep the newest N — oldest are dropped first
-            if (state.config.debug) {
+            if (state.config?.debug) {
                 // eslint-disable-next-line no-console
                 console.error(
                     `[Pulsar] Failed to deliver ${batch.events.length} event(s) after ${maxRetries} retries. ` +
@@ -491,7 +491,7 @@ export function createCapturePipeline(sharedState) {
             if (overflow > 0) {
                 state.droppedEventsCount += overflow;
                 state.queue = combined.slice(-MAX_QUEUE_SIZE); // keep newest
-                if (state.config.debug) {
+                if (state.config?.debug) {
                     // eslint-disable-next-line no-console
                     console.warn(`[Pulsar] Queue full on rescue — dropped ${overflow} oldest event(s).`);
                 }

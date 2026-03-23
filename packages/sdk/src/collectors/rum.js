@@ -133,7 +133,7 @@ export function setupPerformanceObserver(state) {
 
     } catch (e) {
         // eslint-disable-next-line no-console
-        if (state.config.debug) console.warn('[Pulsar] PerformanceObserver setup failed', e);
+        if (state.config?.debug) console.warn('[Pulsar] PerformanceObserver setup failed', e);
     }
 
     _installSpaNavigationHook(state);
@@ -162,7 +162,7 @@ function _installSpaNavigationHook(state) {
             captureRUM(state, departingUrl); // attributed to the page we are leaving
             resetWebVitals();
 
-            if (state.config.debug) {
+            if (state.config?.debug) {
                 // eslint-disable-next-line no-console
                 console.log('[Pulsar] SPA navigation — web vitals flushed and reset.');
             }
