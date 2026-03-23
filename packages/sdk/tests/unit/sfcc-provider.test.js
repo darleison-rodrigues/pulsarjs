@@ -19,34 +19,13 @@ describe('SFCC Platform Provider', () => {
         expect(SFCCProvider.name).toBe('sfcc');
     });
 
-    it('extractContext returns expected shape with no cookies', () => {
-        const ctx = SFCCProvider.extractContext();
-        expect(ctx).toHaveProperty('dwsid');
-        expect(ctx).toHaveProperty('visitorId');
-        expect(ctx).toHaveProperty('customerId');
-        expect(ctx.dwsid).toBeNull();
-        expect(ctx.visitorId).toBeNull();
-        expect(ctx.customerId).toBeNull();
-    });
-
-    it('extractContext reads dwsid cookie', () => {
+    it('extractContext does NOT return dwsid, visitorId, or customerId', () => {
         document.cookie = 'dwsid=abc123xyz';
-        const ctx = SFCCProvider.extractContext();
-        expect(ctx.dwsid).toBe('abc123xyz');
-    });
-
-    it('parses dwac_* cookies for visitor and customer IDs', () => {
         document.cookie = 'dwac_site1=visitor123|session456|customer789';
         const ctx = SFCCProvider.extractContext();
-        expect(ctx.visitorId).toBe('visitor123');
-        expect(ctx.customerId).toBe('customer789');
-    });
-
-    it('returns null for __ANNONYMOUS__ visitor/customer', () => {
-        document.cookie = 'dwac_site1=__ANNONYMOUS__|session456|__ANNONYMOUS__';
-        const ctx = SFCCProvider.extractContext();
-        expect(ctx.visitorId).toBeNull();
-        expect(ctx.customerId).toBeNull();
+        expect(ctx).not.toHaveProperty('dwsid');
+        expect(ctx).not.toHaveProperty('visitorId');
+        expect(ctx).not.toHaveProperty('customerId');
     });
 
     it('detects dw.ac._category', () => {

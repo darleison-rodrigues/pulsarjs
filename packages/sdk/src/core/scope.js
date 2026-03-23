@@ -43,10 +43,10 @@ export class Scope {
 
     clone() {
         const cloned = new Scope();
-        cloned._breadcrumbs = [...this._breadcrumbs];
-        cloned._tags = { ...this._tags };
-        cloned._user = { ...this._user };
-        cloned._extra = { ...this._extra };
+        cloned._breadcrumbs = structuredClone(this._breadcrumbs);
+        cloned._tags = structuredClone(this._tags);
+        cloned._user = structuredClone(this._user);
+        cloned._extra = structuredClone(this._extra);
         cloned._maxBreadcrumbs = this._maxBreadcrumbs;
         return cloned;
     }

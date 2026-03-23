@@ -25,13 +25,13 @@ export const SFCCProvider = {
     name: 'sfcc',
 
     extractContext() {
-        const context = {
-            dwsid: getCookie('dwsid') || null,
-            visitorId: null,
-            customerId: null
-        };
+        const context = {};
 
         // Parse dwac_* cookies for visitor/customer IDs
+        // We still parse these for potential internal logic if needed later, but they are NOT added to the context object to prevent PII leaks.
+        let visitorId = null;
+        let customerId = null;
+
         const cookies = document.cookie.split(';');
         for (let i = 0; i < cookies.length; i++) {
             const c = cookies[i].trim();
@@ -41,8 +41,8 @@ export const SFCCProvider = {
                     const decoded = decodeURIComponent(parts[1]).trim();
                     const vals = decoded.split('|');
                     if (vals.length >= 3) {
-                        context.visitorId = vals[0] !== '__ANNONYMOUS__' ? vals[0] : null;
-                        context.customerId = vals[2] !== '__ANNONYMOUS__' ? vals[2] : null;
+                        visitorId = vals[0] !== '__ANONYMOUS__' ? vals[0] : null;
+                        customerId = vals[2] !== '__ANONYMOUS__' ? vals[2] : null;
                     }
                 }
                 break;
