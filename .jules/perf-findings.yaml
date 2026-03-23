@@ -1,0 +1,7 @@
+- date: 2026-03-22
+  code: P6
+  file: src/utils/environment.js
+  line: 12
+  status: fixed
+  pr: null
+  skipped_reason: ''
