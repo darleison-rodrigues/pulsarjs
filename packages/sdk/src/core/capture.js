@@ -104,17 +104,26 @@ function buildEnvelopeContext(events, state) {
         if (event.edge_hint === 'degraded_by') hasDegradation = true;
     }
 
+    // PERF: P6 — Shared envelope fields rebuilt on every flush
+    // Cache static session fields on the state object during initialization/first-flush
+    // to prevent reconstructing them on every flush. Reduces object allocation and GC churn per beacon.
+    if (!state._cachedSessionBase) {
+        state._cachedSessionBase = {
+            session_id: state.sessionID,
+            device_cohort: state.device?.device_cohort || null,
+            started_at: state.sessionStartedAt,
+            entry: {
+                page_type: state.entryPageType,
+                referrer_type: state.entryReferrerType,
+                campaign_source: state.entryCampaignSource
+            }
+        };
+    }
+
     const session = {
-        session_id: state.sessionID,
-        device_cohort: state.device?.device_cohort || null,
+        ...state._cachedSessionBase,
         seq_range: minSeq <= maxSeq ? [minSeq, maxSeq] : null,
-        started_at: state.sessionStartedAt,
-        page_count: state.pageCount,
-        entry: {
-            page_type: state.entryPageType,
-            referrer_type: state.entryReferrerType,
-            campaign_source: state.entryCampaignSource
-        }
+        page_count: state.pageCount
     };
 
     const manifest = {

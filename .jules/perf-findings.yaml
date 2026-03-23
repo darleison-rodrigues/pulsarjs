@@ -1,3 +1,10 @@
+- date: 2026-03-23
+  code: P6
+  file: packages/sdk/src/core/capture.js
+  line: 110
+  status: fixed
+  pr: 54
+  skipped_reason: ""
 - date: 2024-05-19
   code: P2
   file: packages/sdk/src/core/session.js
