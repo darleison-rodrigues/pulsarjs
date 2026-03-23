@@ -15,9 +15,6 @@
  *   PUL-032 — module-level `state` singleton eliminated; each pipeline owns its closure
  */
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Sanitizers } from '../utils/sanitizers.js';
-
 const MAX_QUEUE_SIZE = 50;
 
 /**

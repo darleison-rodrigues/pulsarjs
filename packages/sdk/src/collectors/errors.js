@@ -18,6 +18,8 @@
  *
  * @param {object} state - Shared SDK state
  */
+import { Sanitizers } from '../utils/sanitizers.js';
+
 export function setupErrorHandlers(state) {
     const { config, capture, globalScope } = state;
 
@@ -33,7 +35,8 @@ export function setupErrorHandlers(state) {
             const eventId = await capture({
                 event_type: 'JS_CRASH',
                 message: event.message,
-                response_snippet: event.error ? event.error.stack : `${event.filename}:${event.lineno}:${event.colno}`,
+                // SECURITY: M1
+                response_snippet: event.error ? Sanitizers.sanitizeStack(event.error.stack) : `${event.filename}:${event.lineno}:${event.colno}`,
                 severity: 'error',
                 is_blocking: true
             });
@@ -50,7 +53,8 @@ export function setupErrorHandlers(state) {
             const eventId = await capture({
                 event_type: 'JS_CRASH',
                 message: event.reason ? event.reason.toString() : 'Unhandled Promise Rejection',
-                response_snippet: event.reason && event.reason.stack ? event.reason.stack : null,
+                // SECURITY: M1
+                response_snippet: event.reason && event.reason.stack ? Sanitizers.sanitizeStack(event.reason.stack) : null,
                 severity: 'error',
                 is_blocking: false
             });
