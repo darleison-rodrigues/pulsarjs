@@ -358,8 +358,7 @@ const Pulsar = (function () {
                     pipeline.capture({
                         event_type: "CUSTOM_EXCEPTION",
                         message: error.message || String(error),
-                        // SECURITY: M1
-                        response_snippet: error.stack ? Sanitizers.sanitizeStack(error.stack) : null,
+                        response_snippet: error.stack || null,
                         severity: "error",
                         metadata: metadata,
                         is_blocking: false
