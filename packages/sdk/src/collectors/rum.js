@@ -64,49 +64,69 @@ export function setupPerformanceObserver(state) {
     try {
         // LCP — always take the latest entry (browser may emit several)
         new PerformanceObserver((entryList) => {
-            const entries = entryList.getEntries();
-            if (entries.length > 0) {
-                webVitals.lcp = entries[entries.length - 1].renderTime
-                    || entries[entries.length - 1].loadTime;
+            try {
+                const entries = entryList.getEntries();
+                if (entries.length > 0) {
+                    webVitals.lcp = entries[entries.length - 1].renderTime
+                        || entries[entries.length - 1].loadTime;
+                }
+            } catch (e) {
+                if (state.config?.debug) console.warn('[Pulsar] LCP observer failed', e);
             }
         }).observe({ type: 'largest-contentful-paint', buffered: true });
 
         // INP — track worst interaction per navigation
         try {
             new PerformanceObserver((entryList) => {
-                entryList.getEntries().forEach(entry => {
-                    if (!entry.interactionId) return;
-                    if (vitals.inp === null || entry.duration > vitals.inp) {
-                        vitals.inp = entry.duration;
-                        vitals.inp_interaction_id = entry.interactionId;
-                    }
-                });
+                try {
+                    entryList.getEntries().forEach(entry => {
+                        if (!entry.interactionId) return;
+                        if (vitals.inp === null || entry.duration > vitals.inp) {
+                            vitals.inp = entry.duration;
+                            vitals.inp_interaction_id = entry.interactionId;
+                        }
+                    });
+                } catch (e) {
+                    if (state.config?.debug) console.warn('[Pulsar] INP observer failed', e);
+                }
             }).observe({ type: 'event', durationThreshold: 40, buffered: true });
         } catch (_) {
             // Fallback to FID for browsers without INP support
             new PerformanceObserver((entryList) => {
-                entryList.getEntries().forEach(entry => {
-                    if (webVitals.inp === null) {
-                        webVitals.inp = entry.processingStart - entry.startTime;
-                    }
-                });
+                try {
+                    entryList.getEntries().forEach(entry => {
+                        if (webVitals.inp === null) {
+                            webVitals.inp = entry.processingStart - entry.startTime;
+                        }
+                    });
+                } catch (e) {
+                    if (state.config?.debug) console.warn('[Pulsar] FID observer failed', e);
+                }
             }).observe({ type: 'first-input', buffered: true });
         }
 
         // CLS — accumulate all non-user-initiated layout shifts
         new PerformanceObserver((entryList) => {
-            for (const entry of entryList.getEntries()) {
-                if (!entry.hadRecentInput) vitals.cls += entry.value;
+            try {
+                for (const entry of entryList.getEntries()) {
+                    if (!entry.hadRecentInput) vitals.cls += entry.value;
+                }
+            } catch (e) {
+                if (state.config?.debug) console.warn('[Pulsar] CLS observer failed', e);
             }
         }).observe({ type: 'layout-shift', buffered: true });
 
         // TTFB + Load Time (initial hard load only — SPA navigations via hook)
         state._rumLoadHandler = () => {
             setTimeout(() => {
-                if (window.performance && window.performance.timing) {
-                    const t = window.performance.timing;
-                    webVitals.ttfb = Math.max(0, t.responseStart - t.navigationStart);
-                    webVitals.load_time_ms = Math.max(0, t.loadEventEnd - t.navigationStart);
+                try {
+                    if (window.performance && window.performance.timing) {
+                        const t = window.performance.timing;
+                        webVitals.ttfb = Math.max(0, t.responseStart - t.navigationStart);
+                        webVitals.load_time_ms = Math.max(0, t.loadEventEnd - t.navigationStart);
+                    }
+                } catch (e) {
+                    if (state.config?.debug) console.warn('[Pulsar] load timing failed', e);
                 }
             }, 0);
         };
@@ -114,7 +134,7 @@ export function setupPerformanceObserver(state) {
 
     } catch (e) {
         // eslint-disable-next-line no-console
-        if (state.config.debug) console.warn('[Pulsar] PerformanceObserver setup failed', e);
+        if (state.config?.debug) console.warn('[Pulsar] PerformanceObserver setup failed', e);
     }
 
     _installSpaNavigationHook(state);
@@ -137,14 +157,18 @@ function _installSpaNavigationHook(state) {
     if (state.spaNavigationHandler) return; // idempotent
 
     function onSpaNavigate(event) {
-        const { departingUrl } = event.detail;
+        try {
+            const { departingUrl } = event.detail;
 
-        captureRUM(state, departingUrl); // attributed to the page we are leaving
-        resetWebVitals();
+            captureRUM(state, departingUrl); // attributed to the page we are leaving
+            resetWebVitals();
 
-        if (state.config.debug) {
-            // eslint-disable-next-line no-console
-            console.log('[Pulsar] SPA navigation — web vitals flushed and reset.');
+            if (state.config?.debug) {
+                // eslint-disable-next-line no-console
+                console.log('[Pulsar] SPA navigation — web vitals flushed and reset.');
+            }
+        } catch (e) {
+            if (state.config?.debug) console.warn('[Pulsar] onSpaNavigate failed', e);
         }
     }
 
@@ -171,24 +195,28 @@ function _installSpaNavigationHook(state) {
  * produce entirely malformed records on the backend.
  */
 export function captureRUM(state, url = window.location.href) {
-    if (!state.enabled || !state.isInitialized) return;
+    try {
+        if (!state.enabled || !state.isInitialized) return;
 
-    const payload = {
-        client_id: state.config.clientId,
-        storefront_type: state.config.storefrontType,
-        site_id: state.config.siteId,
-        session_id: state.sessionID,
-        url,                                    // attributed to departing page
-        timestamp: new Date().toISOString(),
-        event_type: 'RUM_METRICS',
-        metrics: { ...webVitals },       // snapshot — not live reference
-        metadata: state.extractPlatformContext(),
-        environment: state.captureEnvironment()
-    };
+        const payload = {
+            client_id: state.config.clientId,
+            storefront_type: state.config.storefrontType,
+            site_id: state.config.siteId,
+            session_id: state.sessionID,
+            url,                                    // attributed to departing page
+            timestamp: new Date().toISOString(),
+            event_type: 'RUM_METRICS',
+            metrics: { ...webVitals },       // snapshot — not live reference
+            metadata: state.extractPlatformContext(),
+            environment: state.captureEnvironment()
+        };
 
-    state.queue.push(payload);
+        state.queue.push(payload);
 
-    // Trigger delivery. state.flush() is guarded by isFlushing — if a flush is
-    // already in-flight, the finally block in capture.js schedules a follow-up.
-    if (state.flush) state.flush();
+        // Trigger delivery. state.flush() is guarded by isFlushing — if a flush is
+        // already in-flight, the finally block in capture.js schedules a follow-up.
+        if (state.flush) state.flush();
+    } catch (e) {
+        if (state.config?.debug) console.warn('[Pulsar] captureRUM failed', e);
+    }
 }
