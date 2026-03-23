@@ -23,7 +23,9 @@
     "pnpm": {
         "overrides": {
             "esbuild": "^0.25.0",
-            "minimatch": "^10.2.1"
+            "minimatch": "^10.2.1",
+            "flatted": ">=3.4.2",
+            "undici": ">=7.24.0"
         }
     }
 }
