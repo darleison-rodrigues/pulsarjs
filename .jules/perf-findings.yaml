@@ -1,3 +1,10 @@
+- date: 2024-05-19
+  code: P2
+  file: packages/sdk/src/core/session.js
+  line: 22
+  status: fixed
+  pr: 125
+  skipped_reason: ""
 - date: 2026-03-22
   code: P6
   file: src/utils/environment.js
