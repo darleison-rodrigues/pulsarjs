@@ -9,7 +9,7 @@
  */
 import { Scope } from './core/scope.js';
 import { DEFAULT_CONFIG, validateConfig } from './core/config.js';
-import { generateSessionID, getPersistedSession, persistSession } from './core/session.js';
+import { generateSessionID, getPersistedSession, persistSession, persistSessionSync } from './core/session.js';
 import { createCapturePipeline } from './core/capture.js';
 import { setupErrorHandlers } from './collectors/errors.js';
 import { setupFetchInterceptor, setupXHRInterceptor } from './collectors/network.js';
@@ -213,6 +213,7 @@ const Pulsar = (function () {
                         state.visibilityHandler = () => {
                             try {
                                 if (document.visibilityState === 'hidden') {
+                                    persistSessionSync(state);
                                     captureRUM(state);
                                     // flushOnHide bypasses the isFlushing concurrency guard.
                                     // This is intentional: on page hide, events sitting in
@@ -282,6 +283,9 @@ const Pulsar = (function () {
                     if (state.interactionHandler) { document.body.removeEventListener('click', state.interactionHandler, true); state.interactionHandler = null; }
                     // PUL-034: remove pulsar:route-change listener
                     if (state.spaNavigationHandler) { window.removeEventListener('pulsar:route-change', state.spaNavigationHandler); state.spaNavigationHandler = null; }
+
+                    // SECURITY: M3
+                    if (state._rumLoadHandler) { window.removeEventListener('load', state._rumLoadHandler); state._rumLoadHandler = null; }
 
                     // Teardown navigation tracking
                     if (state._navOriginalPushState) { history.pushState = state._navOriginalPushState; state._navOriginalPushState = null; }
