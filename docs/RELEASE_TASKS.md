@@ -72,6 +72,8 @@
 | **PUL-053-VALIDATION** | Release validation: All tests green, bundle <25KB | Manual (Darleison) | Gate | 🔴 Open | 2026-04-12 | — | Final CI check before release |
 | **PUL-053-TAG** | Git tag: v1.0.0 | Manual (Darleison) | Release | 🔴 Open | 2026-04-12 | — | Create and push git tag |
 | **PUL-053-PUBLISH** | NPM publish: v1.0.0 | Manual (Darleison) | Release | 🔴 Open | 2026-04-12 | — | Publish to npm registry (if applicable) |
+| **PUL-053-CD** | CI/CD: Deploy bundle to CDN on release | Jules Weaver / Manual | Build | 🔴 Open | 2026-04-12 | — | Extend release.yml to upload `p.js` + sourcemap to R2 (or S3/GCS); version-pinned + `latest` alias; decide hosting strategy |
+| **PUL-053-CDN-SMOKE** | Post-deploy smoke test: CDN bundle loads | CI (GitHub Actions) | Gate | 🔴 Open | 2026-04-12 | — | `curl` versioned URL after deploy; verify 200 + Content-Type; optional integrity hash check |
 
 ---
 
@@ -111,6 +113,8 @@ Phase 2 (blocking on Phase 1)
      ↓
 Phase 3 (blocking on Phase 2)
 ├─ PUL-053-VERSION, DTS (Jules Medic)
+├─ PUL-053-CD (CI/CD pipeline — deploy bundle to CDN)
+├─ PUL-053-CDN-SMOKE (post-deploy smoke test)
 ├─ PUL-053-VALIDATION (Manual)
 └─ PUL-053-TAG, PUBLISH (Manual)
 ```

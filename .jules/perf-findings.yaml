@@ -1,0 +1,14 @@
+# Performance Findings Log — Bolt Agent
+# Format: date | agent | code | file | line | status | pr | skipped_reason
+
+findings: []
+
+# Example entry:
+# - date: 2026-03-22
+#   agent: bolt
+#   code: P2
+#   file: packages/sdk/src/core/session.js
+#   line: 42
+#   status: fixed
+#   pr: 124
+#   skipped_reason: ""

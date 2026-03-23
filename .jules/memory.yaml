@@ -10,3 +10,21 @@
   failure_count: 0
   last_used: 2026-03-20
   weight: 1.0
+
+- id: mem-002
+  domain: security
+  trigger: when validating user-supplied endpoint configuration in config.js
+  pattern: >
+    Endpoint validation in config.js line 47 uses startsWith('https://') check only.
+    This is vulnerable to URL auth injection attacks: https://evil.com@api.pulsarjs.com
+    would pass validation but sendBeacon(endpoint, blob) in capture.js line 359 would
+    send traffic to evil.com instead of api.pulsarjs.com. Browser resolves credentials
+    in URL and routes authentically.
+  implication: Always use URL constructor to parse and validate endpoints; check protocol and parse host separately, never rely on string startsWith() for security-sensitive URLs.
+  source: manual-review
+  confirmed: 2026-03-23
+  recurrence: 1
+  success_count: 0
+  failure_count: 0
+  last_used: 2026-03-23
+  weight: 1.0

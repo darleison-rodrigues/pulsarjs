@@ -1,10 +1,36 @@
+# Security Findings Log — Sentinel Agent
+# Format: date | agent | code | file | line | status | pr | skipped_reason
+
 findings:
-  - id: C2
-    status: Fixed
-    description: "Replaced hardcoded `pulsar_version` in `capture.js` with build-time injection via esbuild define `__VERSION__`"
-  - id: H2
-    status: Fixed
-    description: "Consolidated History API monkey-patches to `navigation.js` and replaced patching in `rum.js` with listening to the `pulsar:route-change` event"
-  - id: H3
-    status: Fixed
-    description: "Added `typeof window !== 'undefined'` guard before assigning `window.Pulsar` in `index.js` to prevent SSR import crashes"
+  - date: 2026-03-20
+    agent: sentinel
+    code: C2
+    file: packages/sdk/src/core/capture.js
+    line: 342
+    status: fixed
+    pr: "—"
+    skipped_reason: "Replaced hardcoded `pulsar_version` with build-time injection via esbuild define `__VERSION__`"
+  - date: 2026-03-20
+    agent: sentinel
+    code: H2
+    file: packages/sdk/src/collectors/rum.js
+    line: "—"
+    status: fixed
+    pr: "—"
+    skipped_reason: "Consolidated History API monkey-patches to navigation.js; rum.js listens to pulsar:route-change"
+  - date: 2026-03-20
+    agent: sentinel
+    code: H3
+    file: packages/sdk/src/index.js
+    line: 350
+    status: fixed
+    pr: "—"
+    skipped_reason: "Added typeof window !== 'undefined' guard before window.Pulsar assignment (SSR safety)"
+  - date: 2026-03-23
+    agent: sentinel
+    code: H5
+    file: packages/sdk/src/core/config.js
+    line: 47
+    status: pending
+    pr: "—"
+    skipped_reason: "Endpoint validation too permissive — allows URL auth injection (https://evil.com@api.pulsarjs.com). Use URL constructor to validate protocol and parse correctly."

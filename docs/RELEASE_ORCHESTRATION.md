@@ -220,10 +220,49 @@ test-e2e:
 - TypeScript declarations: No `.d.ts` for public API
   - NPM consumers importing pulsarjs get no type hints
 
+**CI/CD — Bundle Delivery Pipeline** (PUL-053-CD):
+
+The release workflow must deliver the built SDK bundle to a CDN so customers can load it via `<script src>`. Decision needed on hosting:
+
+| Option | Pros | Cons | Effort |
+|--------|------|------|--------|
+| **Cloudflare R2 + Workers** | Low cost, edge-cached globally, already in CF ecosystem (pulsar-infra) | Need R2 bucket + Worker for routing | Medium |
+| **GitHub Releases only** | Already works (`release.yml`), zero setup | Not a CDN, no edge caching, no versioned URL scheme | Done |
+| **npm + unpkg/jsdelivr** | Auto-CDN via npm publish, SRI hashes, versioned URLs for free | Depends on third-party CDN availability | Low |
+
+Regardless of hosting choice, the delivery pipeline must:
+1. **Version-pin**: `https://cdn.example.com/pulsar/v1.0.0/p.js`
+2. **Latest alias**: `https://cdn.example.com/pulsar/latest/p.js` (updated on each release)
+3. **Sourcemap**: Deploy `p.js.map` alongside the bundle
+4. **Integrity hash**: Generate SRI hash (`sha384-...`) for `<script integrity>` consumers
+5. **Smoke test**: `curl` the deployed URL, verify 200 + correct `Content-Type`
+
+**If R2**: Extend `release.yml` with:
+```yaml
+- name: Upload to R2
+  uses: cloudflare/wrangler-action@v3
+  with:
+    command: r2 object put pulsar-sdk/v${{ github.ref_name }}/p.js --file=packages/sdk/dist/pulsar.js
+  env:
+    CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+    CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+- name: Update latest alias
+  uses: cloudflare/wrangler-action@v3
+  with:
+    command: r2 object put pulsar-sdk/latest/p.js --file=packages/sdk/dist/pulsar.js
+  env:
+    CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+    CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+```
+
+**If npm + unpkg**: No workflow changes beyond `npm publish` — unpkg/jsdelivr auto-mirror from npm.
+
 **Agent Work**:
 - **Jules Medic**: Implement esbuild `define` to inject `__VERSION__` from package.json; generate `.d.ts` for public API
+- **Jules Weaver** (or Manual): Implement CI/CD deploy step in `release.yml` based on chosen hosting strategy
 
 **Manual Work**:
+- **Decide hosting strategy** (R2 vs npm+unpkg vs both) — this blocks PUL-053-CD
 - Execute release: `git tag v1.0.0`, push, npm publish (if applicable)
 - Generate release notes
 
@@ -232,6 +271,8 @@ test-e2e:
 ✅ All previous gates (lint, build, unit, integration, E2E)
 ✅ Version injection verified (bundle contains correct version string)
 ✅ TypeScript declarations present and valid
+✅ CDN deploy: bundle uploaded to versioned + latest paths
+✅ CDN smoke: deployed URL returns 200 with correct content
 ```
 
 **Success Criteria**:
@@ -239,6 +280,10 @@ test-e2e:
 - [ ] `.d.ts` file generated and exported in `package.json` `types` field
 - [ ] All tests passing with new version
 - [ ] Bundle still <25KB
+- [ ] CDN hosting strategy decided (R2 / npm+unpkg / both)
+- [ ] `release.yml` extended with deploy + smoke steps
+- [ ] Versioned URL reachable: `https://<cdn>/pulsar/v1.0.0/p.js`
+- [ ] SRI hash generated and documented for script-tag consumers
 - [ ] Git tag `v1.0.0` created and pushed
 - [ ] Release notes published
 
@@ -266,6 +311,8 @@ Phase 2: PUL-052 (E2E Tests)
        ↓
 Phase 3: v1.0.0 Release
   ├─ Version injection + .d.ts
+  ├─ CI/CD: Deploy to CDN (R2 or npm+unpkg)
+  ├─ Post-deploy smoke test
   └─ Ship to production
 ```
 
@@ -307,8 +354,10 @@ PulsarJS v1.0.0 Release Orchestration
 └─ Phase 3: Release (Week 4) [blocks on Phase 2]
    ├─ [Jules Medic] Version injection (esbuild define)
    ├─ [Jules Medic] TypeScript declarations (.d.ts)
+   ├─ [Manual] Decide CDN hosting (R2 vs npm+unpkg vs both)
+   ├─ [Jules Weaver / Manual] Extend release.yml with deploy + smoke
    ├─ [Manual] Git tag v1.0.0, npm publish
-   └─ [All tests green] Ready to ship
+   └─ [All tests green + CDN smoke] Ready to ship
 ```
 
 ---
@@ -421,8 +470,9 @@ Week 4
   Mon ├─ Phase 2: E2E tests + CI validation
   Tue ├─ Phase 2 → Phase 3 transition
   Wed ├─ Phase 3: Jules Medic version injection + .d.ts
-  Thu ├─ Phase 3: All tests green, release validation
-  Fri └─ Release: git tag v1.0.0, npm publish
+  Thu ├─ Phase 3: CI/CD deploy pipeline + CDN smoke test
+  Fri ├─ Phase 3: All tests green, release validation
+  Fri └─ Release: git tag v1.0.0, npm publish, CDN deploy
 ```
 
 ---
