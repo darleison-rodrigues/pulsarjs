@@ -301,7 +301,14 @@ const Pulsar = (function () {
                 }
             },
 
-            getScope: function () { return globalScope; },
+            getScope: function () {
+                try {
+                    return globalScope;
+                } catch (e) {
+                    if (config?.debug) console.warn('[Pulsar] getScope failed', e);
+                    return null;
+                }
+            },
             setTag: function (key, value) {
                 try {
                     globalScope.setTag(key, value);
@@ -379,9 +386,15 @@ const Pulsar = (function () {
 
     const defaultClient = createClient();
     defaultClient.createInstance = function (cfg = {}) {
-        const instance = createClient();
-        if (Object.keys(cfg).length > 0) instance.init(cfg);
-        return instance;
+        try {
+            const instance = createClient();
+            if (Object.keys(cfg).length > 0) instance.init(cfg);
+            return instance;
+        } catch (e) {
+            // eslint-disable-next-line no-console
+            console.warn('[Pulsar] createInstance failed', e);
+            return createClient(); // return an uninitialized dummy to prevent crashes
+        }
     };
 
     return defaultClient;
