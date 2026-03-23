@@ -16,6 +16,7 @@ import { setupFetchInterceptor, setupXHRInterceptor } from './collectors/network
 import { setupPerformanceObserver, captureRUM } from './collectors/rum.js';
 import { setupNavigationTracking } from './collectors/navigation.js';
 import { setupScrollObserver, setupRageClickDetector } from './collectors/interactions.js';
+import { Sanitizers } from './utils/sanitizers.js';
 import { resolveProvider } from './providers/provider.js';
 import { captureEnvironment, extractCampaigns } from './utils/environment.js';
 import { buildDeviceInfo } from './utils/device.js';
