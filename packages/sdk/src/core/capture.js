@@ -15,7 +15,7 @@
  *   PUL-032 — module-level `state` singleton eliminated; each pipeline owns its closure
  */
 
-import { Sanitizers } from '../utils/sanitizers.js';
+import { Sanitizers as _Sanitizers } from '../utils/sanitizers.js';
 
 const MAX_QUEUE_SIZE = 50;
 
