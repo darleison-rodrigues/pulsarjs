@@ -35,6 +35,7 @@ export function setupErrorHandlers(state) {
             const eventId = await capture({
                 event_type: 'JS_CRASH',
                 message: event.message,
+                // SECURITY: M1
                 response_snippet: event.error ? Sanitizers.sanitizeStack(event.error.stack) : Sanitizers.sanitizeStack(`${event.filename}:${event.lineno}:${event.colno}`),
                 severity: 'error',
                 is_blocking: true
@@ -52,6 +53,7 @@ export function setupErrorHandlers(state) {
             const eventId = await capture({
                 event_type: 'JS_CRASH',
                 message: event.reason ? event.reason.toString() : 'Unhandled Promise Rejection',
+                // SECURITY: M1
                 response_snippet: event.reason && event.reason.stack ? Sanitizers.sanitizeStack(event.reason.stack) : null,
                 severity: 'error',
                 is_blocking: false

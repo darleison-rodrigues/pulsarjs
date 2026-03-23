@@ -3,5 +3,19 @@
   file: packages/sdk/src/collectors/errors.js
   line: 36
   status: fixed
-  pr: 1
+  pr: 50
+  skipped_reason: ""
+- date: 2026-03-23
+  code: M1
+  file: packages/sdk/src/collectors/errors.js
+  line: 53
+  status: fixed
+  pr: 50
+  skipped_reason: ""
+- date: 2026-03-23
+  code: M1
+  file: packages/sdk/src/index.js
+  line: 350
+  status: fixed
+  pr: 50
   skipped_reason: ""

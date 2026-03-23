@@ -15,8 +15,6 @@
  *   PUL-032 — module-level `state` singleton eliminated; each pipeline owns its closure
  */
 
-import { Sanitizers as _Sanitizers } from '../utils/sanitizers.js';
-
 const MAX_QUEUE_SIZE = 50;
 
 /**
@@ -238,13 +236,13 @@ export function createCapturePipeline(sharedState) {
                 if (e.message === 'timeout') {
                     const ms = state.config.beforeSendTimeout ?? 2000;
                     // eslint-disable-next-line no-console
-                        if (state.config?.debug) console.warn(`[Pulsar] beforeSend timed out after ${ms}ms`);
+                    if (state.config?.debug) console.warn(`[Pulsar] beforeSend timed out after ${ms}ms`);
                     payload = originalPayload; // Fallback to original payload
                     if (state.config.allowUnconfirmedConsent) {
                         payload.metadata = payload.metadata || {};
                         payload.metadata.consent_unconfirmed = true;
                     } else {
-                            if (state.config?.debug) {
+                        if (state.config?.debug) {
                             // eslint-disable-next-line no-console
                             console.log('[Pulsar] Event dropped due to strict consent fallback');
                             return null;
@@ -253,7 +251,7 @@ export function createCapturePipeline(sharedState) {
                     }
                 } else {
                     // eslint-disable-next-line no-console
-                        if (state.config?.debug) console.warn('[Pulsar] beforeSend hook threw an error', e);
+                    if (state.config?.debug) console.warn('[Pulsar] beforeSend hook threw an error', e);
                     payload = originalPayload; // Fallback to original payload on throw
                 }
             } finally {
@@ -263,7 +261,7 @@ export function createCapturePipeline(sharedState) {
 
         if (payload === null) {
             // eslint-disable-next-line no-console
-                if (state.config?.debug) console.log('[Pulsar] Event dropped by beforeSend hook');
+            if (state.config?.debug) console.log('[Pulsar] Event dropped by beforeSend hook');
             return null;
         }
 

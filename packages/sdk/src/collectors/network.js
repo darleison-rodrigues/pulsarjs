@@ -37,17 +37,10 @@ export function setupFetchInterceptor(state) {
 
         const proceed = () => state.originalFetch.apply(this, args);
 
-        let isMonitoredRoute = false;
-        let isInternalRoute = false;
+        if (!requestUrl) return proceed();
 
-        try {
-            if (!requestUrl) return proceed();
-
-            isMonitoredRoute = config.endpointFilter ? config.endpointFilter.test(requestUrl) : true;
-            isInternalRoute = requestUrl.includes(config.endpoint);
-        } catch (e) {
-            if (config?.debug) console.warn('[Pulsar] fetch pre-processing check failed', e);
-        }
+        const isMonitoredRoute = config.endpointFilter ? config.endpointFilter.test(requestUrl) : true;
+        const isInternalRoute = requestUrl.includes(config.endpoint);
 
         if (!isMonitoredRoute || isInternalRoute) return proceed();
 
@@ -62,7 +55,7 @@ export function setupFetchInterceptor(state) {
             }
             startTime = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
         } catch (e) {
-            if (config?.debug) console.warn('[Pulsar] fetch pre-processing variables failed', e);
+            if (config?.debug) console.warn('[Pulsar] fetch pre-processing failed', e);
         }
 
         let response;
@@ -84,7 +77,7 @@ export function setupFetchInterceptor(state) {
             } catch (e) {
                 if (config?.debug) console.warn('[Pulsar] fetch error capture failed', e);
             }
-            throw error; // MUST rethrow, we don't want to swallow network errors for the host app.
+            throw error;
         }
 
         try {

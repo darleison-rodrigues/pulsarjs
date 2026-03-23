@@ -16,10 +16,10 @@ import { setupFetchInterceptor, setupXHRInterceptor } from './collectors/network
 import { setupPerformanceObserver, captureRUM } from './collectors/rum.js';
 import { setupNavigationTracking } from './collectors/navigation.js';
 import { setupScrollObserver, setupRageClickDetector } from './collectors/interactions.js';
-import { Sanitizers } from './utils/sanitizers.js';
 import { resolveProvider } from './providers/provider.js';
 import { captureEnvironment, extractCampaigns } from './utils/environment.js';
 import { buildDeviceInfo } from './utils/device.js';
+import { Sanitizers } from './utils/sanitizers.js';
 import { createSanitizer } from './utils/sanitizers.js';
 
 const Pulsar = (function () {
@@ -306,14 +306,7 @@ const Pulsar = (function () {
                 }
             },
 
-            getScope: function () {
-                try {
-                    return globalScope;
-                } catch (e) {
-                    if (config?.debug) console.warn('[Pulsar] getScope failed', e);
-                    return null;
-                }
-            },
+            getScope: function () { return globalScope; },
             setTag: function (key, value) {
                 try {
                     globalScope.setTag(key, value);
@@ -359,6 +352,7 @@ const Pulsar = (function () {
                     pipeline.capture({
                         event_type: "CUSTOM_EXCEPTION",
                         message: error.message || String(error),
+                        // SECURITY: M1
                         response_snippet: error.stack ? Sanitizers.sanitizeStack(error.stack) : null,
                         severity: "error",
                         metadata: metadata,
