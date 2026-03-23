@@ -36,7 +36,7 @@ export function setupErrorHandlers(state) {
                 event_type: 'JS_CRASH',
                 message: event.message,
                 // SECURITY: M1
-                response_snippet: event.error ? Sanitizers.sanitizeStack(event.error.stack) : `${event.filename}:${event.lineno}:${event.colno}`,
+                response_snippet: event.error ? Sanitizers.sanitizeStack(event.error.stack) : Sanitizers.sanitizeStack(`${event.filename}:${event.lineno}:${event.colno}`),
                 severity: 'error',
                 is_blocking: true
             });

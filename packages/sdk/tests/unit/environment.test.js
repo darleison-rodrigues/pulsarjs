@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { captureEnvironment, extractCampaigns, _resetCachedEnvironment } from '../../src/utils/environment.js';
+import { captureEnvironment, extractCampaigns } from '../../src/utils/environment.js';
 
 describe('captureEnvironment', () => {
     beforeEach(() => {
-        _resetCachedEnvironment();
         vi.stubGlobal('performance', {
             now: vi.fn().mockReturnValue(123.456)
         });

@@ -97,13 +97,9 @@ export function setupNavigationTracking(state) {
     };
 
     const onPopState = () => {
-        try {
-            const departingUrl = currentHref;
-            currentHref = window.location.href;
-            onRouteChange(departingUrl);
-        } catch (e) {
-            if (config?.debug) console.warn('[Pulsar] onPopState failed', e);
-        }
+        const departingUrl = currentHref;
+        currentHref = window.location.href;
+        onRouteChange(departingUrl);
     };
     window.addEventListener('popstate', onPopState);
 
@@ -141,46 +137,42 @@ export function setupNavigationTracking(state) {
 }
 
 export async function emitPageView(state, pageInfo, referrerType, fromPageType) {
-    try {
-        const metadata = {
-            page_type: pageInfo.type,
-            referrer_type: referrerType,
-            from_page_type: fromPageType,
-            path: state.sanitizer.sanitizeUrl(window.location.pathname)
-        };
-        if (pageInfo.product_ref) {
-            const sanitizedRef = state.sanitizer.redactPII(pageInfo.product_ref);
-            metadata.product_ref = sanitizedRef;
+    const metadata = {
+        page_type: pageInfo.type,
+        referrer_type: referrerType,
+        from_page_type: fromPageType,
+        path: state.sanitizer.sanitizeUrl(window.location.pathname)
+    };
+    if (pageInfo.product_ref) {
+        const sanitizedRef = state.sanitizer.redactPII(pageInfo.product_ref);
+        metadata.product_ref = sanitizedRef;
 
-            // PUL-030: deduplicate and store for manifest
-            if (state.productRefs && !state.productRefs.includes(sanitizedRef)) {
-                state.productRefs.push(sanitizedRef);
-            }
+        // PUL-030: deduplicate and store for manifest
+        if (state.productRefs && !state.productRefs.includes(sanitizedRef)) {
+            state.productRefs.push(sanitizedRef);
+        }
+    }
+
+    const eventId = await state.capture({
+        event_type: 'PAGE_VIEW',
+        message: `Page: ${pageInfo.type}`,
+        metadata,
+        severity: 'info',
+        is_blocking: false
+    });
+
+    if (eventId) {
+        // PUL-029: session context tracking
+        state.pageCount++;
+        if (!state.entryPageType) {
+            state.entryPageType = pageInfo.type;
+            state.entryReferrerType = referrerType;
         }
 
-        const eventId = await state.capture({
-            event_type: 'PAGE_VIEW',
-            message: `Page: ${pageInfo.type}`,
-            metadata,
-            severity: 'info',
-            is_blocking: false
-        });
-
-        if (eventId) {
-            // PUL-029: session context tracking
-            state.pageCount++;
-            if (!state.entryPageType) {
-                state.entryPageType = pageInfo.type;
-                state.entryReferrerType = referrerType;
-            }
-
-            // PUL-028: track first PAGE_VIEW for caused edge
-            if (!state.firstPageViewEventId) {
-                state.firstPageViewEventId = eventId;
-            }
+        // PUL-028: track first PAGE_VIEW for caused edge
+        if (!state.firstPageViewEventId) {
+            state.firstPageViewEventId = eventId;
         }
-    } catch (e) {
-        if (state.config?.debug) console.warn('[Pulsar] emitPageView failed', e);
     }
 }
 

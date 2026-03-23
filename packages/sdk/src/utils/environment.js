@@ -3,33 +3,15 @@
  * Device context, DevTools detection, UTM extraction.
  */
 
-// PERF: P6 — Shared envelope fields rebuilt on every flush
-// reduces Intl.DateTimeFormat().resolvedOptions().timeZone invocations from 1 per event to 1 per session
-let cachedEnvironment = null;
-
-/**
- * Reset cached environment for testing.
- * @internal
- */
-export function _resetCachedEnvironment() {
-    cachedEnvironment = null;
-}
-
 /**
  * Capture browser environment context.
  */
 export function captureEnvironment() {
-    if (!cachedEnvironment) {
-        cachedEnvironment = {
-            screen_resolution: typeof window !== 'undefined' && window.screen ? `${window.screen.width}x${window.screen.height}` : 'unknown',
-            timezone: typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'unknown',
-            is_devtools_open: typeof window !== 'undefined' ? ((window.outerWidth - window.innerWidth > 160) || (window.outerHeight - window.innerHeight > 160)) : false
-        };
-    }
-
     return {
-        ...cachedEnvironment,
-        time_since_load_ms: typeof performance !== 'undefined' ? Math.round(performance.now()) : 0
+        time_since_load_ms: typeof performance !== 'undefined' ? Math.round(performance.now()) : 0,
+        screen_resolution: window.screen ? `${window.screen.width}x${window.screen.height}` : 'unknown',
+        timezone: typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'unknown',
+        is_devtools_open: (window.outerWidth - window.innerWidth > 160) || (window.outerHeight - window.innerHeight > 160)
     };
 }
 
