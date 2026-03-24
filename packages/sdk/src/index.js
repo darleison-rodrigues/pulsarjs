@@ -141,6 +141,7 @@ const Pulsar = (function () {
         state.capture = pipeline.capture;
         state.flush = pipeline.flush;
         state.flushOnHide = pipeline.flushOnHide;
+        state.nextEventId = pipeline.nextEventId;
 
         // Public API
         return {

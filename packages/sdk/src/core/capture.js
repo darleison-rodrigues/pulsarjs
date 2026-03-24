@@ -145,6 +145,7 @@ export function createCapturePipeline(sharedState) {
 
     const _fingerprintCache = new Map();
     let _eventSeq = 0;
+    let _captureCount = 0;
 
     // --- Flush scheduling ---
     let flushTimer = null;
@@ -184,6 +185,13 @@ export function createCapturePipeline(sharedState) {
                 }
                 // Claim the slot synchronously — before any await below.
                 _fingerprintCache.set(fingerprint, { timestamp: now, count: 1 });
+            }
+        }
+
+        if (++_captureCount % 50 === 0) {
+            const now = Date.now();
+            for (const [key, entry] of _fingerprintCache) {
+                if (now - entry.timestamp > 120000) _fingerprintCache.delete(key);
             }
         }
 
@@ -274,7 +282,7 @@ export function createCapturePipeline(sharedState) {
             // Snapshot drop context at the moment of overflow — URL and session
             // may differ by flush time in SPA navigations.
             if (!state.firstDropTimestamp) state.firstDropTimestamp = new Date().toISOString();
-            if (!state.firstDropUrl) state.firstDropUrl = window.location.href;
+            if (!state.firstDropUrl) state.firstDropUrl = state.sanitizer.sanitizeUrl(window.location.href);
             if (!state.firstDropSessionId) state.firstDropSessionId = state.sessionID;
         }
 
@@ -379,14 +387,14 @@ export function createCapturePipeline(sharedState) {
                 site_id: state.config.siteId,
                 // Use the session and URL from when the drop occurred, not now.
                 session_id: state.firstDropSessionId || state.sessionID,
-                url: state.firstDropUrl || window.location.href,
+                url: state.firstDropUrl || state.sanitizer.sanitizeUrl(window.location.href),
                 timestamp: new Date().toISOString(),
                 event_type: 'QUEUE_OVERFLOW',
                 message: `Dropped ${state.droppedSinceLastFlush} events due to queue limits`,
                 metadata: {
                     dropped_count: state.droppedSinceLastFlush,
                     first_drop_time: state.firstDropTimestamp,
-                    first_drop_url: state.firstDropUrl,
+                    first_drop_url: state.firstDropUrl || state.sanitizer.sanitizeUrl(window.location.href),
                 },
                 dropped_events: state.droppedEventsCount,
                 severity: 'warning',
@@ -419,7 +427,6 @@ export function createCapturePipeline(sharedState) {
             product_refs: productSnapshot,
             dropped_events: state.droppedEventsCount
         };
-        state.productRefs = [];
         // ─────────────────────────────────────────────────────────────────────
 
         const endpoint = state.config.endpoint;
@@ -508,5 +515,5 @@ export function createCapturePipeline(sharedState) {
         }
     }
 
-    return { capture, flush, flushOnHide };
+    return { capture, flush, flushOnHide, nextEventId: () => `${state.sessionID}:${++_eventSeq}` };
 }

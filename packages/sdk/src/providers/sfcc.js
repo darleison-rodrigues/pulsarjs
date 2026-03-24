@@ -25,29 +25,7 @@ export const SFCCProvider = {
     name: 'sfcc',
 
     extractContext() {
-        const context = {
-            dwsid: getCookie('dwsid') || null,
-            visitorId: null,
-            customerId: null
-        };
-
-        // Parse dwac_* cookies for visitor/customer IDs
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const c = cookies[i].trim();
-            if (c.startsWith('dwac_')) {
-                const parts = c.split('=');
-                if (parts.length > 1) {
-                    const decoded = decodeURIComponent(parts[1]).trim();
-                    const vals = decoded.split('|');
-                    if (vals.length >= 3) {
-                        context.visitorId = vals[0] !== '__ANNONYMOUS__' ? vals[0] : null;
-                        context.customerId = vals[2] !== '__ANNONYMOUS__' ? vals[2] : null;
-                    }
-                }
-                break;
-            }
-        }
+        const context = {};
 
         // dw.ac category context
         if (typeof window.dw !== 'undefined' && window.dw.ac && window.dw.ac._category) {

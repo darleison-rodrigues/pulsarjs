@@ -23,6 +23,7 @@ import { Sanitizers } from '../utils/sanitizers.js';
 export function setupErrorHandlers(state) {
     const { config, capture, globalScope } = state;
 
+    try {
     // ── JS_CRASH: uncaught synchronous errors ────────────────────────────────
     // addEventListener('error') stacks with any other listener on the page.
     // The old window.onerror = assignment was a single slot — anything running
@@ -130,14 +131,11 @@ export function setupErrorHandlers(state) {
             if (!e.target || e.target === document) return;
             const tag = e.target.tagName ? e.target.tagName.toLowerCase() : 'unknown';
             const id = e.target.id ? `#${e.target.id}` : '';
-            // PUL-037 (hardening): className will be stripped here to avoid
-            // capturing form-field identity (GDPR). Placeholder until that ticket.
-            const cls = typeof e.target.className === 'string' && e.target.className
-                ? `.${e.target.className.trim().replace(/\s+/g, '.')}`
-                : '';
+            // PUL-037: className stripped to avoid capturing form-field identity (GDPR)
+
             globalScope.addBreadcrumb({
                 category: 'ui.click',
-                message: `${tag}${id}${cls}`,
+                message: `${tag}${id}`,
                 // We should also implement defensive performance check just in case,
                 // although it was mentioned the original PR wrapped performance.now in network.js,
                 // this also has it in errors.js.
@@ -148,4 +146,8 @@ export function setupErrorHandlers(state) {
         }
     };
     document.body.addEventListener('click', state.interactionHandler, true);
+
+    } catch (e) {
+        if (config?.debug) console.warn('[Pulsar] setupErrorHandlers failed completely', e);
+    }
 }

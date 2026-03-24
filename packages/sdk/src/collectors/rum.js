@@ -47,21 +47,9 @@ export function resetWebVitals() {
  * @param {object} state - Shared SDK state
  */
 export function setupPerformanceObserver(state) {
-    if (typeof PerformanceObserver === 'undefined') return;
-
-    // Initialize metrics in state if not present
-    state.webVitals = state.webVitals || {
-        lcp: null,
-        inp: null,
-        inp_interaction_id: null,
-        cls: 0,
-        ttfb: null,
-        load_time_ms: null
-    };
-
-    const vitals = state.webVitals;
-
     try {
+        if (typeof PerformanceObserver === 'undefined') return;
+
         // LCP — always take the latest entry (browser may emit several)
         new PerformanceObserver((entryList) => {
             try {
@@ -81,9 +69,9 @@ export function setupPerformanceObserver(state) {
                 try {
                     entryList.getEntries().forEach(entry => {
                         if (!entry.interactionId) return;
-                        if (vitals.inp === null || entry.duration > vitals.inp) {
-                            vitals.inp = entry.duration;
-                            vitals.inp_interaction_id = entry.interactionId;
+                        if (webVitals.inp === null || entry.duration > webVitals.inp) {
+                            webVitals.inp = entry.duration;
+                            webVitals.inp_interaction_id = entry.interactionId;
                         }
                     });
                 } catch (e) {
@@ -109,7 +97,7 @@ export function setupPerformanceObserver(state) {
         new PerformanceObserver((entryList) => {
             try {
                 for (const entry of entryList.getEntries()) {
-                    if (!entry.hadRecentInput) vitals.cls += entry.value;
+                    if (!entry.hadRecentInput) webVitals.cls += entry.value;
                 }
             } catch (e) {
                 if (state.config?.debug) console.warn('[Pulsar] CLS observer failed', e);
@@ -199,6 +187,7 @@ export function captureRUM(state, url = window.location.href) {
         if (!state.enabled || !state.isInitialized) return;
 
         const payload = {
+            event_id: state.nextEventId(),
             client_id: state.config.clientId,
             storefront_type: state.config.storefrontType,
             site_id: state.config.siteId,
