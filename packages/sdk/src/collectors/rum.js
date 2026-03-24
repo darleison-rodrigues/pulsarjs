@@ -120,11 +120,12 @@ export function setupPerformanceObserver(state) {
         };
         window.addEventListener('load', state._rumLoadHandler);
 
-        _installSpaNavigationHook(state);
     } catch (e) {
         // eslint-disable-next-line no-console
         if (state.config?.debug) console.warn('[Pulsar] PerformanceObserver setup failed', e);
     }
+
+    _installSpaNavigationHook(state);
 }
 
 /**

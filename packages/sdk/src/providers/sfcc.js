@@ -27,28 +27,6 @@ export const SFCCProvider = {
     extractContext() {
         const context = {};
 
-        // Parse dwac_* cookies for visitor/customer IDs
-        // We still parse these for potential internal logic if needed later, but they are NOT added to the context object to prevent PII leaks.
-        let visitorId = null;
-        let customerId = null;
-
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const c = cookies[i].trim();
-            if (c.startsWith('dwac_')) {
-                const parts = c.split('=');
-                if (parts.length > 1) {
-                    const decoded = decodeURIComponent(parts[1]).trim();
-                    const vals = decoded.split('|');
-                    if (vals.length >= 3) {
-                        visitorId = vals[0] !== '__ANONYMOUS__' ? vals[0] : null;
-                        customerId = vals[2] !== '__ANONYMOUS__' ? vals[2] : null;
-                    }
-                }
-                break;
-            }
-        }
-
         // dw.ac category context
         if (typeof window.dw !== 'undefined' && window.dw.ac && window.dw.ac._category) {
             context.category = window.dw.ac._category;

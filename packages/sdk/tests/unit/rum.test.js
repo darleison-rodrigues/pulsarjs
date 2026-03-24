@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { setupPerformanceObserver, captureRUM, resetWebVitals, webVitals } from '../../src/collectors/rum.js';
+import { setupPerformanceObserver, resetWebVitals, webVitals } from '../../src/collectors/rum.js';
 
 describe('RUM Collector', () => {
     let mockState;
