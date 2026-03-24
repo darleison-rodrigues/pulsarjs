@@ -39,9 +39,9 @@ export const ShopifyProvider = {
 
     commerceActions: [
         { action: 'cart_add',    method: 'POST',   pattern: /\/cart\/add(?:\.js)?/i },
-        { action: 'cart_remove', method: 'POST',   pattern: /\/cart\/change(?:\.js)?.*quantity=0/i },
+        { action: 'cart_remove', method: 'POST',   pattern: /\/cart\/change(?:\.js)?/i },
         { action: 'cart_update', method: 'POST',   pattern: /\/cart\/(?:change|update)(?:\.js)?/i },
-        { action: 'checkout',    method: 'POST',   pattern: /\/checkout|\/api\/[^/]+\/graphql\.json/i },
+        { action: 'checkout',    method: 'POST',   pattern: /\/checkout/i },
         { action: 'search',      method: 'GET',    pattern: /\/search(?:\/suggest\.json)?/i }
     ],
 
@@ -56,10 +56,10 @@ export const ShopifyProvider = {
         [/^\/$/,  'Home']
     ],
 
-    endpointFilter: /\/cart\/|\/checkout|\/search|\/api\/[^/]+\/graphql\.json/i,
+    endpointFilter: /\/cart\/|\/checkout|\/search/i,
 
     piiPatterns: [
-        { pattern: /(\/account\?.*token=)[^&]+/gi, replacement: '$1[TOKEN_REDACTED]' },
-        { pattern: /\/checkouts\/[a-zA-Z0-9]+/gi, replacement: '/checkouts/[TOKEN_REDACTED]' }
+        { pattern: /(\/account\?.*token=)[^&]+/i, replacement: '$1[TOKEN_REDACTED]' },
+        { pattern: /\/checkouts\/[a-zA-Z0-9]+/i, replacement: '/checkouts/[TOKEN_REDACTED]' }
     ]
 };

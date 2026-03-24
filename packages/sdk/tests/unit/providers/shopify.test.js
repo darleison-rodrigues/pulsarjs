@@ -88,12 +88,11 @@ describe('ShopifyProvider', () => {
             expect(matchesAction('cart_update', 'POST', '/cart/update.js')).toBe(true);
 
             // cart_remove
-            expect(matchesAction('cart_remove', 'POST', '/cart/change.js?quantity=0')).toBe(true);
-            expect(matchesAction('cart_remove', 'POST', '/cart/change?id=123&quantity=0')).toBe(true);
+            expect(matchesAction('cart_remove', 'POST', '/cart/change.js')).toBe(true);
+            expect(matchesAction('cart_remove', 'POST', '/cart/change')).toBe(true);
 
             // checkout
             expect(matchesAction('checkout', 'POST', '/checkout')).toBe(true);
-            expect(matchesAction('checkout', 'POST', '/api/2024-01/graphql.json')).toBe(true);
 
             // search
             expect(matchesAction('search', 'GET', '/search')).toBe(true);
