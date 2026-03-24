@@ -46,16 +46,17 @@ export function setupFetchInterceptor(state) {
 
         let method = 'GET';
         let bodySnippet = null;
-        let startTime = Date.now();
+        // PERF: P9 — Redundant timestamp calls
+        // reduces redundant Date.now() allocations on every monitored fetch request
+        let startTime = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
 
         try {
             method = (args[1]?.method || 'GET').toUpperCase();
             if (args[1] && args[1].body && typeof args[1].body === 'string') {
                 bodySnippet = state.sanitizer.redactPII(args[1].body).substring(0, 500);
             }
-            startTime = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
         } catch (e) {
-            if (config.debug) console.warn('[Pulsar] fetch pre-processing failed', e);
+            if (config?.debug) console.warn('[Pulsar] fetch pre-processing failed', e);
         }
 
         let response;
@@ -75,7 +76,6 @@ export function setupFetchInterceptor(state) {
                     state.processedErrors.add(error);
                 }
             } catch (e) {
-                if (config.debug) console.warn('[Pulsar] fetch error capture failed', e);
                 if (config?.debug) console.warn('[Pulsar] fetch error capture failed', e);
             }
             throw error;
@@ -164,7 +164,7 @@ export function setupXHRInterceptor(state) {
             this._url = url;
         } catch (e) {
             // eslint-disable-next-line no-console
-            if (config.debug) console.warn('[Pulsar] XHR open intercept failed', e);
+            if (config?.debug) console.warn('[Pulsar] XHR open intercept failed', e);
         }
         return state.originalXhrOpen.apply(this, arguments);
     };
@@ -252,13 +252,13 @@ export function setupXHRInterceptor(state) {
                         }
                     } catch (e) {
                         // eslint-disable-next-line no-console
-                        if (config.debug) console.warn('[Pulsar] XHR loadend hook error', e);
+                        if (config?.debug) console.warn('[Pulsar] XHR loadend hook error', e);
                     }
                 });
             }
         } catch (e) {
             // eslint-disable-next-line no-console
-            if (config.debug) console.warn('[Pulsar] XHR send intercept failed', e);
+            if (config?.debug) console.warn('[Pulsar] XHR send intercept failed', e);
         }
         return state.originalXhrSend.apply(this, arguments);
     };

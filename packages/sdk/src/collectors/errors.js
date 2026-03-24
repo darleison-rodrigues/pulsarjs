@@ -18,9 +18,12 @@
  *
  * @param {object} state - Shared SDK state
  */
+import { Sanitizers } from '../utils/sanitizers.js';
+
 export function setupErrorHandlers(state) {
     const { config, capture, globalScope } = state;
 
+    try {
     // ── JS_CRASH: uncaught synchronous errors ────────────────────────────────
     // addEventListener('error') stacks with any other listener on the page.
     // The old window.onerror = assignment was a single slot — anything running
@@ -33,7 +36,8 @@ export function setupErrorHandlers(state) {
             const eventId = await capture({
                 event_type: 'JS_CRASH',
                 message: event.message,
-                response_snippet: event.error ? event.error.stack : `${event.filename}:${event.lineno}:${event.colno}`,
+                // SECURITY: M1
+                response_snippet: event.error ? Sanitizers.sanitizeStack(event.error.stack) : Sanitizers.sanitizeStack(`${event.filename}:${event.lineno}:${event.colno}`),
                 severity: 'error',
                 is_blocking: true
             });
@@ -50,7 +54,8 @@ export function setupErrorHandlers(state) {
             const eventId = await capture({
                 event_type: 'JS_CRASH',
                 message: event.reason ? event.reason.toString() : 'Unhandled Promise Rejection',
-                response_snippet: event.reason && event.reason.stack ? event.reason.stack : null,
+                // SECURITY: M1
+                response_snippet: event.reason && event.reason.stack ? Sanitizers.sanitizeStack(event.reason.stack) : null,
                 severity: 'error',
                 is_blocking: false
             });
@@ -126,14 +131,11 @@ export function setupErrorHandlers(state) {
             if (!e.target || e.target === document) return;
             const tag = e.target.tagName ? e.target.tagName.toLowerCase() : 'unknown';
             const id = e.target.id ? `#${e.target.id}` : '';
-            // PUL-037 (hardening): className will be stripped here to avoid
-            // capturing form-field identity (GDPR). Placeholder until that ticket.
-            const cls = typeof e.target.className === 'string' && e.target.className
-                ? `.${e.target.className.trim().replace(/\s+/g, '.')}`
-                : '';
+            // PUL-037: className stripped to avoid capturing form-field identity (GDPR)
+
             globalScope.addBreadcrumb({
                 category: 'ui.click',
-                message: `${tag}${id}${cls}`,
+                message: `${tag}${id}`,
                 // We should also implement defensive performance check just in case,
                 // although it was mentioned the original PR wrapped performance.now in network.js,
                 // this also has it in errors.js.
@@ -144,4 +146,8 @@ export function setupErrorHandlers(state) {
         }
     };
     document.body.addEventListener('click', state.interactionHandler, true);
+
+    } catch (e) {
+        if (config?.debug) console.warn('[Pulsar] setupErrorHandlers failed completely', e);
+    }
 }

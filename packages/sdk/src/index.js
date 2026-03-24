@@ -9,7 +9,7 @@
  */
 import { Scope } from './core/scope.js';
 import { DEFAULT_CONFIG, validateConfig } from './core/config.js';
-import { generateSessionID, getPersistedSession, persistSession } from './core/session.js';
+import { generateSessionID, getPersistedSession, persistSession, persistSessionSync } from './core/session.js';
 import { createCapturePipeline } from './core/capture.js';
 import { setupErrorHandlers } from './collectors/errors.js';
 import { setupFetchInterceptor, setupXHRInterceptor } from './collectors/network.js';
@@ -19,6 +19,7 @@ import { setupScrollObserver, setupRageClickDetector } from './collectors/intera
 import { resolveProvider } from './providers/provider.js';
 import { captureEnvironment, extractCampaigns } from './utils/environment.js';
 import { buildDeviceInfo } from './utils/device.js';
+import { Sanitizers } from './utils/sanitizers.js';
 import { createSanitizer } from './utils/sanitizers.js';
 
 const Pulsar = (function () {
@@ -140,6 +141,7 @@ const Pulsar = (function () {
         state.capture = pipeline.capture;
         state.flush = pipeline.flush;
         state.flushOnHide = pipeline.flushOnHide;
+        state.nextEventId = pipeline.nextEventId;
 
         // Public API
         return {
@@ -213,6 +215,7 @@ const Pulsar = (function () {
                         state.visibilityHandler = () => {
                             try {
                                 if (document.visibilityState === 'hidden') {
+                                    persistSessionSync(state);
                                     captureRUM(state);
                                     // flushOnHide bypasses the isFlushing concurrency guard.
                                     // This is intentional: on page hide, events sitting in
@@ -283,6 +286,9 @@ const Pulsar = (function () {
                     // PUL-034: remove pulsar:route-change listener
                     if (state.spaNavigationHandler) { window.removeEventListener('pulsar:route-change', state.spaNavigationHandler); state.spaNavigationHandler = null; }
 
+                    // SECURITY: M3
+                    if (state._rumLoadHandler) { window.removeEventListener('load', state._rumLoadHandler); state._rumLoadHandler = null; }
+
                     // Teardown navigation tracking
                     if (state._navOriginalPushState) { history.pushState = state._navOriginalPushState; state._navOriginalPushState = null; }
                     if (state._navOriginalReplaceState) { history.replaceState = state._navOriginalReplaceState; state._navOriginalReplaceState = null; }
@@ -347,7 +353,8 @@ const Pulsar = (function () {
                     pipeline.capture({
                         event_type: "CUSTOM_EXCEPTION",
                         message: error.message || String(error),
-                        response_snippet: error.stack || null,
+                        // SECURITY: M1
+                        response_snippet: error.stack ? Sanitizers.sanitizeStack(error.stack) : null,
                         severity: "error",
                         metadata: metadata,
                         is_blocking: false
@@ -379,9 +386,15 @@ const Pulsar = (function () {
 
     const defaultClient = createClient();
     defaultClient.createInstance = function (cfg = {}) {
-        const instance = createClient();
-        if (Object.keys(cfg).length > 0) instance.init(cfg);
-        return instance;
+        try {
+            const instance = createClient();
+            if (Object.keys(cfg).length > 0) instance.init(cfg);
+            return instance;
+        } catch (e) {
+            // eslint-disable-next-line no-console
+            console.warn('[Pulsar] createInstance failed', e);
+            return createClient(); // return an uninitialized dummy to prevent crashes
+        }
     };
 
     return defaultClient;
