@@ -46,14 +46,15 @@ export function setupFetchInterceptor(state) {
 
         let method = 'GET';
         let bodySnippet = null;
-        let startTime = Date.now();
+        // PERF: P9 — Redundant timestamp calls
+        // reduces redundant Date.now() allocations on every monitored fetch request
+        let startTime = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
 
         try {
             method = (args[1]?.method || 'GET').toUpperCase();
             if (args[1] && args[1].body && typeof args[1].body === 'string') {
                 bodySnippet = state.sanitizer.redactPII(args[1].body).substring(0, 500);
             }
-            startTime = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
         } catch (e) {
             if (config?.debug) console.warn('[Pulsar] fetch pre-processing failed', e);
         }
