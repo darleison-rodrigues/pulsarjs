@@ -12,6 +12,7 @@
  */
 
 import { SFCCProvider } from './sfcc.js';
+import { ShopifyProvider } from './shopify.js';
 
 /**
  * Generic provider — sensible ecommerce defaults.
@@ -42,7 +43,8 @@ export const GENERIC_PROVIDER = {
 const PROVIDER_KEYS = ['name', 'extractContext', 'commerceActions', 'pageTypes', 'endpointFilter', 'piiPatterns'];
 
 const BUILTIN_PROVIDERS = {
-    sfcc: SFCCProvider
+    sfcc: SFCCProvider,
+    shopify: ShopifyProvider
 };
 
 /**
