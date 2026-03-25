@@ -10,3 +10,12 @@
   failure_count: 0
   last_used: 2026-03-20
   weight: 1.0
+- id: mem-002
+  domain: documentation
+  trigger: "C1 — API contract drift"
+  pattern: >
+    docs/API.md was missing configuration options allowUnconfirmedConsent and nonce that are present and validated in packages/sdk/src/core/config.js.
+  implication: "Always ensure docs/API.md is perfectly synced with packages/sdk/src/core/config.js DEFAULT_CONFIG and validateConfig."
+  source: scribe
+  confirmed: 2026-03-25
+  recurrence: 1

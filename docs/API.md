@@ -31,6 +31,8 @@ Server-side rate limiting and origin allowlists handle authenticated ingestion.
 | `sampleRate` | `number` | `1.0` | Session sampling rate (0–1) |
 | `beforeSend` | `function` | `null` | Async hook to filter/enrich events. Return `null` to drop. |
 | `beforeSendTimeout` | `number` | `2000` | Max ms to wait for `beforeSend` |
+| `allowUnconfirmedConsent` | `boolean` | `false` | If true, send events with consent_unconfirmed flag on beforeSend timeout <!-- DOCS: C1 --> |
+| `nonce` | `string` | `null` | CSP nonce for any dynamically created elements <!-- DOCS: C1 --> |
 | `endpointFilter` | `RegExp` | from provider | Regex to filter which fetch/XHR calls are monitored. Overrides provider default. |
 | `criticalSelectors` | `string[]` | Error UI selectors | CSS selectors for MutationObserver (error UI detection) |
 | `maxBreadcrumbs` | `number` | `100` | Max breadcrumbs in circular buffer |
