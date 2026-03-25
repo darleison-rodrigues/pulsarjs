@@ -91,3 +91,134 @@ describe('Product View Tracking (PUL-030)', () => {
         expect(lastCall.metadata.product_ref).toBe('[EMAIL_REDACTED]');
     });
 });
+
+describe('Campaign Entry Tracking (PUL-003)', () => {
+    let mockState;
+    let setupNavigationTracking;
+
+    beforeEach(async () => {
+        mockState = {
+            config: {
+                pageTypes: [],
+                enabled: true,
+                isInitialized: true
+            },
+            capture: vi.fn().mockResolvedValue('event-123'),
+            pageCount: 0,
+            sanitizer: {
+                sanitizeUrl: (url) => url,
+                redactPII: (val) => val
+            }
+        };
+
+        const nav = await import('../../src/collectors/navigation.js');
+        setupNavigationTracking = nav.setupNavigationTracking;
+
+        // Reset window.location
+        delete window.location;
+        window.location = {
+            pathname: '/',
+            href: 'https://example.com/',
+            search: ''
+        };
+    });
+
+    it('captures utm parameters and default click IDs correctly', async () => {
+        window.location.search = '?utm_source=newsletter&gclid=12345';
+
+        setupNavigationTracking(mockState);
+        // Wait for async execution
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // Find the CAMPAIGN_ENTRY call
+        const campaignCall = mockState.capture.mock.calls.find(call => call[0].event_type === 'CAMPAIGN_ENTRY');
+        expect(campaignCall).toBeDefined();
+
+        const payload = campaignCall[0];
+        expect(payload.metadata.utm_source).toBe('newsletter');
+        expect(payload.metadata.gclid).toBe('12345');
+        expect(mockState.entryCampaignSource).toBe('newsletter');
+    });
+
+    it('truncates values exceeding 128 characters', async () => {
+        const longValue = 'a'.repeat(150);
+        window.location.search = `?gclid=${longValue}`;
+
+        setupNavigationTracking(mockState);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const campaignCall = mockState.capture.mock.calls.find(call => call[0].event_type === 'CAMPAIGN_ENTRY');
+        expect(campaignCall[0].metadata.gclid.length).toBe(128);
+        expect(campaignCall[0].metadata.gclid).toBe('a'.repeat(128));
+    });
+
+    it('classifies entryCampaignSource as social when fbclid is present', async () => {
+        window.location.search = '?fbclid=abc_social';
+
+        setupNavigationTracking(mockState);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(mockState.entryCampaignSource).toBe('social');
+    });
+
+    it('classifies entryCampaignSource as affiliate when irclickid is present', async () => {
+        window.location.search = '?irclickid=abc_affiliate';
+
+        setupNavigationTracking(mockState);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(mockState.entryCampaignSource).toBe('affiliate');
+    });
+
+    it('defaults entryCampaignSource to paid when no match is found but param exists', async () => {
+        window.location.search = '?utm_medium=cpc';
+
+        setupNavigationTracking(mockState);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(mockState.entryCampaignSource).toBe('paid');
+    });
+
+    it('links CAMPAIGN_ENTRY to firstPageViewEventId if available', async () => {
+        window.location.search = '?utm_source=google';
+
+        setupNavigationTracking(mockState);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const campaignCall = mockState.capture.mock.calls.find(call => call[0].event_type === 'CAMPAIGN_ENTRY');
+        expect(campaignCall[0].caused_by).toBe('event-123');
+        expect(campaignCall[0].edge_hint).toBe('caused');
+    });
+
+    it('does not capture unknown parameters', async () => {
+        window.location.search = '?unknown_param=true&gclid=123';
+
+        setupNavigationTracking(mockState);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const campaignCall = mockState.capture.mock.calls.find(call => call[0].event_type === 'CAMPAIGN_ENTRY');
+        expect(campaignCall[0].metadata.unknown_param).toBeUndefined();
+        expect(campaignCall[0].metadata.gclid).toBe('123');
+    });
+
+    it('emits no event for empty search string', async () => {
+        window.location.search = '';
+
+        setupNavigationTracking(mockState);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const campaignCall = mockState.capture.mock.calls.find(call => call[0].event_type === 'CAMPAIGN_ENTRY');
+        expect(campaignCall).toBeUndefined();
+    });
+
+    it('classifyReferrer returns campaign for known click ids', async () => {
+        // Need to extract the non-exported classifyReferrer method, but we can test the PAGE_VIEW referrer_type
+        window.location.search = '?irclickid=123';
+
+        setupNavigationTracking(mockState);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const pageViewCall = mockState.capture.mock.calls.find(call => call[0].event_type === 'PAGE_VIEW');
+        expect(pageViewCall[0].metadata.referrer_type).toBe('campaign');
+    });
+});
