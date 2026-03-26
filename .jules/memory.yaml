@@ -10,3 +10,13 @@
   failure_count: 0
   last_used: 2026-03-20
   weight: 1.0
+- id: mem-002
+  domain: documentation
+  trigger: "Updating Pulsar.init config options in docs/api/02-core-methods.md"
+  pattern: >
+    The API documentation in docs/api/02-core-methods.md missed several configuration options
+    present in packages/sdk/src/core/config.js. Confirmed mechanically by comparing source code with documentation directly.
+  implication: "Always ensure the configuration table in API docs strictly matches the DEFAULT_CONFIG in src/core/config.js."
+  source: scribe
+  confirmed: 2026-03-24
+  recurrence: 1
