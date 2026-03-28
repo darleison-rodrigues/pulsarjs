@@ -1,6 +1,7 @@
 # Core Methods
 
 ### `Pulsar.init(config)`
+<!-- DOCS: C1 -->
 
 | Option | Type | Default | Description |
 |---|---|---|---|
@@ -9,11 +10,14 @@
 | `endpoint` | `string` | `https://api.pulsarjs.com/v1/ingest` | Ingestion endpoint URL |
 | `storefrontType` | `string` | `'PWA_KIT'` | `PWA_KIT` or `SITEGENESIS` |
 | `platform` | `string\|object` | `'sfcc'` | Platform provider. Built-in: `'sfcc'`. Pass an object for custom providers (see below). |
+| `enabled` | `boolean` | `true` | Whether the SDK is enabled. |
 | `sampleRate` | `number` | `1.0` | Session sampling rate (0–1) |
 | `beforeSend` | `function` | `null` | Async hook to filter/enrich events. Return `null` to drop. |
 | `beforeSendTimeout` | `number` | `2000` | Max ms to wait for `beforeSend` |
+| `allowUnconfirmedConsent` | `boolean` | `false` | If true, send events with `consent_unconfirmed` flag on `beforeSend` timeout. |
 | `endpointFilter` | `RegExp` | from provider | Regex to filter which fetch/XHR calls are monitored. Overrides provider default. |
 | `criticalSelectors` | `string[]` | Error UI selectors | CSS selectors for MutationObserver (error UI detection) |
+| `nonce` | `string` | `null` | CSP nonce for any dynamically created elements. |
 | `maxBreadcrumbs` | `number` | `100` | Max breadcrumbs in circular buffer |
 | `slowApiThreshold` | `number` | `1000` | Latency threshold (ms) for API_LATENCY events |
 | `rageClickThreshold` | `number` | `3` | Clicks within window to trigger RAGE_CLICK |
