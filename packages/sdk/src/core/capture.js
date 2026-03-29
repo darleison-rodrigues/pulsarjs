@@ -196,6 +196,19 @@ export function createCapturePipeline(sharedState) {
         }
 
         const eventId = `${state.sessionID}:${++_eventSeq}`;
+
+        // SECURITY: M2
+        let safeEventType = String(errorData.event_type || errorData.error_type || 'UNKNOWN');
+        if (safeEventType.length > 256) safeEventType = safeEventType.slice(0, 256);
+
+        let safeMessage = state.sanitizer.redactPII(errorData.message || 'Unknown error');
+        if (safeMessage.length > 512) safeMessage = safeMessage.slice(0, 512);
+
+        let safeMetadata = { ...errorData.metadata, ...state.extractPlatformContext() };
+        if (typeof safeMetadata.selector === 'string' && safeMetadata.selector.length > 256) {
+            safeMetadata.selector = safeMetadata.selector.slice(0, 256);
+        }
+
         let payload = {
             event_id: eventId,
             client_id: state.config.clientId,
@@ -204,15 +217,15 @@ export function createCapturePipeline(sharedState) {
             session_id: state.sessionID,
             url: state.sanitizer.sanitizeUrl(window.location.href),
             timestamp: new Date().toISOString(),
-            event_type: errorData.event_type || errorData.error_type || 'UNKNOWN',
-            message: state.sanitizer.redactPII(errorData.message || 'Unknown error'),
+            event_type: safeEventType,
+            message: safeMessage,
             response_snippet: errorData.response_snippet
                 ? state.sanitizer.redactPII(errorData.response_snippet)
                 : null,
             severity: errorData.severity || 'error',
             is_blocking: errorData.is_blocking || false,
             metrics: errorData.metrics || null,
-            metadata: { ...errorData.metadata, ...state.extractPlatformContext() },
+            metadata: safeMetadata,
             environment: state.captureEnvironment(),
             device: state.device,
             status_code: errorData.status_code || null,
