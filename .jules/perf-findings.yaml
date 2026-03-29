@@ -26,3 +26,10 @@
   status: fixed
   pr: null
   skipped_reason: ""
+- date: 2026-03-24
+  code: P9
+  file: packages/sdk/src/core/capture.js
+  line: 180
+  status: fixed
+  pr: null
+  skipped_reason: ""
