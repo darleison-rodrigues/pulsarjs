@@ -10,3 +10,12 @@
   failure_count: 0
   last_used: 2026-03-20
   weight: 1.0
+- id: mem-002
+  domain: documentation
+  trigger: "documenting init configuration options"
+  pattern: >
+    The SDK's configuration options in `docs/api/02-core-methods.md` must exactly match the properties in `DEFAULT_CONFIG` defined in `packages/sdk/src/core/config.js`. Options like `enabled`, `allowUnconfirmedConsent`, and `nonce` are required to be documented.
+  implication: "When updating or verifying configuration options, ensure they are mirrored exactly between the `DEFAULT_CONFIG` source code object and the documentation table."
+  source: scribe
+  confirmed: 2026-03-30
+  recurrence: 1

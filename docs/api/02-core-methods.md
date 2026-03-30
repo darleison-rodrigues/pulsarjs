@@ -9,6 +9,7 @@
 | `endpoint` | `string` | `https://api.pulsarjs.com/v1/ingest` | Ingestion endpoint URL |
 | `storefrontType` | `string` | `'PWA_KIT'` | `PWA_KIT` or `SITEGENESIS` |
 | `platform` | `string\|object` | `'sfcc'` | Platform provider. Built-in: `'sfcc'`. Pass an object for custom providers (see below). |
+| `enabled` | `boolean` | `true` | Whether the SDK is enabled. If `false`, events are dropped. |
 | `sampleRate` | `number` | `1.0` | Session sampling rate (0–1) |
 | `beforeSend` | `function` | `null` | Async hook to filter/enrich events. Return `null` to drop. |
 | `beforeSendTimeout` | `number` | `2000` | Max ms to wait for `beforeSend` |
@@ -19,7 +20,10 @@
 | `rageClickThreshold` | `number` | `3` | Clicks within window to trigger RAGE_CLICK |
 | `rageClickWindow` | `number` | `1000` | Time window (ms) for rage click detection |
 | `scrollDepthMilestones` | `number[]` | `[25, 50, 75, 100]` | SCROLL_DEPTH trigger points |
+| `allowUnconfirmedConsent` | `boolean` | `false` | Allow event capture without confirmed consent |
+| `nonce` | `string` | `null` | Nonce for Content Security Policy |
 | `debug` | `boolean` | `false` | Console logging |
+<!-- DOCS: C1 -->
 
 ### `Pulsar.captureException(error, metadata?)`
 
