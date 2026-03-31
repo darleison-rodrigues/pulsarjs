@@ -189,7 +189,9 @@ const Pulsar = (function () {
                     if (!sessionID) sessionID = generateSessionID();
                     if (!state.sessionStartedAt) state.sessionStartedAt = new Date().toISOString();
 
-                    isSampled = Math.random() <= config.sampleRate;
+                    // SECURITY: H4 — crypto only
+                    const randomVal = crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
+                    isSampled = randomVal <= config.sampleRate;
                     enabled = !!config.enabled && isSampled;
 
                     if (!enabled) return;
@@ -253,7 +255,11 @@ const Pulsar = (function () {
 
             enable: function () {
                 try {
-                    if (isSampled === null) isSampled = Math.random() <= config.sampleRate;
+                    if (isSampled === null) {
+                        // SECURITY: H4 — crypto only
+                        const randomVal = crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
+                        isSampled = randomVal <= config.sampleRate;
+                    }
                     if (!isSampled) {
                         // eslint-disable-next-line no-console
                         if (config?.debug) console.log('[Pulsar] Session excluded by sampling');
