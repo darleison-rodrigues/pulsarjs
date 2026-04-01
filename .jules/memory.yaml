@@ -10,6 +10,16 @@
   failure_count: 0
   last_used: 2026-03-20
   weight: 1.0
+- id: mem-003
+  domain: documentation
+  trigger: "Compare README.md with package.json."
+  pattern: >
+    A structural fact about this codebase, confirmed mechanically
+    by comparing source code with documentation directly. The setup instructions in README.md incorrectly specified running npm scripts within the package directory with a filter, rather than using the correct workspace commands defined in the root package.json.
+  implication: "Always ensure the setup instructions in README.md match the scripts defined in the root package.json."
+  source: scribe
+  confirmed: 2026-03-27
+  recurrence: 1
 - id: mem-002
   domain: documentation
   trigger: "Updating Pulsar.init config options in docs/api/02-core-methods.md"
