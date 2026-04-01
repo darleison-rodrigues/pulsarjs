@@ -3,6 +3,7 @@
 ### `Pulsar.init(config)`
 <!-- DOCS: C1 -->
 
+<!-- DOCS: C1 -->
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `clientId` | `string` | **Required** | Your PulsarJS tenant ID |
@@ -12,6 +13,8 @@
 | `platform` | `string\|object` | `'sfcc'` | Platform provider. Built-in: `'sfcc'`. Pass an object for custom providers (see below). |
 | `enabled` | `boolean` | `true` | Whether the SDK is enabled. |
 | `sampleRate` | `number` | `1.0` | Session sampling rate (0–1) |
+| `allowUnconfirmedConsent` | `boolean` | `false` | Allow data collection without explicit consent |
+| `nonce` | `string` | `null` | CSP nonce for dynamic script tags |
 | `beforeSend` | `function` | `null` | Async hook to filter/enrich events. Return `null` to drop. |
 | `beforeSendTimeout` | `number` | `2000` | Max ms to wait for `beforeSend` |
 | `allowUnconfirmedConsent` | `boolean` | `false` | If true, send events with `consent_unconfirmed` flag on `beforeSend` timeout. |

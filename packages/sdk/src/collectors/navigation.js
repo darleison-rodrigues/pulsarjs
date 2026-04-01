@@ -184,40 +184,48 @@ export async function emitPageView(state, pageInfo, referrerType, fromPageType) 
     }
 }
 
+const CLICK_ID_PARAMS = {
+    // Paid search/display
+    gclid: 'paid', gbraid: 'paid', wbraid: 'paid',
+    msclkid: 'paid', dclid: 'paid',
+    // Social
+    fbclid: 'social', ttclid: 'social', twclid: 'social',
+    sccid: 'social', pin_unauth: 'social', li_fat_id: 'social',
+    // Affiliate
+    irclickid: 'affiliate', aff_id: 'affiliate', clickid: 'affiliate'
+};
+
 function emitCampaignEntry(state) {
     if (!window.location.search) return;
     try {
         const params = new URLSearchParams(window.location.search);
-        const keys = [
-            'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
-            // Click IDs — platform attribution
-            'gclid',      // Google Ads
-            'gbraid',     // Google Ads (iOS privacy)
-            'wbraid',     // Google Ads (web-to-app)
-            'fbclid',     // Meta (Facebook / Instagram)
-            'msclkid',    // Microsoft / Bing Ads
-            'ttclid',     // TikTok Ads
-            'twclid',     // X (Twitter) Ads
-            'li_fat_id',  // LinkedIn Ads
-            'pin_unauth', // Pinterest
-            'sccid',      // Snapchat Ads
-            'dclid',      // Google Display & Video 360
-            // Affiliate networks
-            'irclickid',  // Impact Radius
-            'aff_id',     // Generic affiliate
-            'clickid',    // Generic affiliate / CJ
-        ];
+        const utmKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+        const clickIdKeys = Object.keys(CLICK_ID_PARAMS);
+        const keys = [...utmKeys, ...clickIdKeys];
         const data = {};
 
+        let firstMatchedClickId = null;
+
         for (const key of keys) {
-            if (params.has(key)) data[key] = params.get(key);
+            if (params.has(key)) {
+                data[key] = params.get(key).slice(0, 128);
+                if (!firstMatchedClickId && clickIdKeys.includes(key)) {
+                    firstMatchedClickId = key;
+                }
+            }
         }
 
         if (Object.keys(data).length === 0) return;
 
         // PUL-029: track campaign source for flush envelope
         if (!state.entryCampaignSource) {
-            state.entryCampaignSource = data.utm_source || 'paid';
+            if (data.utm_source) {
+                state.entryCampaignSource = data.utm_source;
+            } else if (firstMatchedClickId) {
+                state.entryCampaignSource = CLICK_ID_PARAMS[firstMatchedClickId];
+            } else {
+                state.entryCampaignSource = 'paid';
+            }
         }
 
         state.capture({
@@ -238,7 +246,8 @@ function emitCampaignEntry(state) {
  * Returns: 'direct' | 'internal' | 'external' | 'campaign'
  */
 function classifyReferrer() {
-    if (window.location.search && /[?&](utm_|gclid|gbraid|wbraid|fbclid|msclkid|ttclid|twclid|li_fat_id|pin_unauth|sccid|dclid|irclickid|aff_id|clickid)/.test(window.location.search)) {
+    const regexPattern = '[?&](utm_|' + Object.keys(CLICK_ID_PARAMS).join('|') + ')';
+    if (window.location.search && new RegExp(regexPattern).test(window.location.search)) {
         return 'campaign';
     }
     if (!document.referrer) return 'direct';
