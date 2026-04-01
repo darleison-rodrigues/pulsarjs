@@ -10,6 +10,20 @@
   failure_count: 0
   last_used: 2026-03-20
   weight: 1.0
+
+- id: mem-002
+  domain: documentation
+  trigger: "comparing configuration options in docs/api/02-core-methods.md with packages/sdk/src/core/config.js"
+  pattern: >
+    API contract drift observed (C1): SDK `enabled`, `allowUnconfirmedConsent`, and `nonce` config options were added in code but omitted from public API documentation.
+  implication: "Always verify `DEFAULT_CONFIG` in `packages/sdk/src/core/config.js` when maintaining or editing configuration docs in `docs/api/02-core-methods.md`."
+  source: scribe
+  confirmed: 2026-04-01
+  recurrence: 1
+  success_count: 0
+  failure_count: 0
+  last_used: 2026-04-01
+  weight: 1.0
 - id: mem-002
   domain: documentation
   trigger: "documenting init configuration options"
