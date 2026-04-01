@@ -116,17 +116,17 @@ PulsarJS operates as a **data processor** under merchant instruction. Legal basi
 
 ## Development
 
+<!-- DOCS: H3 -->
 ```bash
 # Install
 pnpm install
 
-# Build SDK
-pnpm --filter @pulsarjs/sdk build        # → dist/pulsar.js (minified)
-pnpm --filter @pulsarjs/sdk build:dev    # → dist/pulsar.dev.js
+# Build
+pnpm run build
 
 # Test
-pnpm --filter @pulsarjs/sdk test         # Vitest unit tests
-pnpm --filter @pulsarjs/sdk test:e2e     # Playwright E2E
+pnpm run test
+pnpm run typecheck
 
 # Lint
 pnpm exec eslint .
