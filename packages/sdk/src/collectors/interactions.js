@@ -41,16 +41,41 @@ export function setupScrollObserver(state) {
         }
     };
 
-    const onScroll = () => {
+    function throttle(func, wait) {
+        let timeout = null;
+        let previous = 0;
+        return function () {
+            const now = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+            const remaining = wait - (now - previous);
+            if (remaining <= 0 || remaining > wait) {
+                if (timeout) {
+                    clearTimeout(timeout);
+                    timeout = null;
+                }
+                previous = now;
+                func.apply(this, arguments);
+            } else if (!timeout) {
+                timeout = setTimeout(() => {
+                    previous = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+                    timeout = null;
+                    func.apply(this, arguments);
+                }, remaining);
+            }
+        };
+    }
+
+    const onScroll = throttle(() => {
         try {
             if (!ticking) {
                 ticking = true;
+                // PERF: P3 — passive + throttled
+                // reduces scroll handler invocations from ~60/s to ~4/s
                 requestAnimationFrame(check);
             }
         } catch (e) {
             if (state.config?.debug) console.warn('[Pulsar] onScroll failed', e);
         }
-    };
+    }, 250);
 
     window.addEventListener('scroll', onScroll, { passive: true });
 
