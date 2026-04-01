@@ -56,7 +56,7 @@ That's it. No npm install, no build step, no consent banner required.
 Storefront → pulsar.js (22KB) → api.pulsarjs.com → Causal Event Stream → Alerts + Dashboard
 ```
 
-The SDK captures **15 event types**. The server infers **5 causal relationships** (caused, preceded, blocked_by, frustrated_by, abandoned_at) from session ordering. The result is a causal chain per session, not just isolated metrics.
+The SDK captures **15 event types**. The SDK hints at **8 causal relationships** (preceded, blocked_by, frustrated_by, abandoned_at, caused, degraded_by, retried_after, navigated_from) and the server computes an additional **5 relationships**. The result is a causal chain per session, not just isolated metrics.
 
 | What happened | What Pulsar captures | Causal edge |
 |---|---|---|
@@ -64,6 +64,8 @@ The SDK captures **15 event types**. The server infers **5 causal relationships*
 | Shopper adds to cart → checkout API fails | `COMMERCE_ACTION` → `API_FAILURE` | **blocked_by** |
 | API error → shopper rage-clicks | `API_FAILURE` → `RAGE_CLICK` | **frustrated_by** |
 | Cart added → shopper closes tab | `COMMERCE_ACTION` → `TAB_VISIBILITY` | **abandoned_at** |
+
+<!-- DOCS: M1 -->
 
 ---
 
@@ -114,17 +116,17 @@ PulsarJS operates as a **data processor** under merchant instruction. Legal basi
 
 ## Development
 
+<!-- DOCS: H3 -->
 ```bash
 # Install
 pnpm install
 
-# Build SDK
-pnpm --filter @pulsarjs/sdk build        # → dist/pulsar.js (minified)
-pnpm --filter @pulsarjs/sdk build:dev    # → dist/pulsar.dev.js
+# Build
+pnpm run build
 
 # Test
-pnpm --filter @pulsarjs/sdk test         # Vitest unit tests
-pnpm --filter @pulsarjs/sdk test:e2e     # Playwright E2E
+pnpm run test
+pnpm run typecheck
 
 # Lint
 pnpm exec eslint .

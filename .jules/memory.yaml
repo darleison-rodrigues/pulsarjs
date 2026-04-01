@@ -18,4 +18,43 @@
   implication: "When updating or verifying configuration options, ensure they are mirrored exactly between the `DEFAULT_CONFIG` source code object and the documentation table."
   source: scribe
   confirmed: 2026-03-30
+
+- id: mem-002
+  domain: documentation
+  trigger: "checking README.md for stale content"
+  pattern: >
+    The README.md file contains stale information about the number of causal relationships (saying there are 5 instead of 13 total across SDK hints and server computations).
+  implication: "Always ensure the causal relationships in README.md align with docs/api/06-edge-taxonomy.md."
+  source: scribe
+  confirmed: 2025-05-24
+    recurrence: 1
+- id: mem-002
+  domain: documentation
+  trigger: "Compare docs/API.md init signature and config options with actual validation in packages/sdk/src/index.js or packages/sdk/src/core/config.js."
+  pattern: >
+    The documentation for `Pulsar.init(config)` was missing several configuration options
+    (`enabled`, `allowUnconfirmedConsent`, `nonce`) that are present in the core configuration (`DEFAULT_CONFIG` in `packages/sdk/src/core/config.js`).
+  implication: "Always ensure docs reflect the exact config accepted by `validateConfig` and the `DEFAULT_CONFIG`."
+    source: scribe
+  confirmed: 2026-03-24
+  recurrence: 1
+- id: mem-003
+  domain: documentation
+  trigger: "Compare README.md with package.json."
+  pattern: >
+    A structural fact about this codebase, confirmed mechanically
+    by comparing source code with documentation directly. The setup instructions in README.md incorrectly specified running npm scripts within the package directory with a filter, rather than using the correct workspace commands defined in the root package.json.
+  implication: "Always ensure the setup instructions in README.md match the scripts defined in the root package.json."
+  source: scribe
+  confirmed: 2026-03-27
+  recurrence: 1
+- id: mem-002
+  domain: documentation
+  trigger: "Updating Pulsar.init config options in docs/api/02-core-methods.md"
+  pattern: >
+    The API documentation in docs/api/02-core-methods.md missed several configuration options
+    present in packages/sdk/src/core/config.js. Confirmed mechanically by comparing source code with documentation directly.
+  implication: "Always ensure the configuration table in API docs strictly matches the DEFAULT_CONFIG in src/core/config.js."
+  source: scribe
+  confirmed: 2026-03-24
   recurrence: 1
