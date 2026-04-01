@@ -167,6 +167,10 @@ export function createCapturePipeline(sharedState) {
     async function capture(errorData, localScope = state.globalScope, bypassDedupe = false) {
         if (!state.enabled || !state.isInitialized) return null;
 
+        // PERF: P9 — redundant timestamp calls
+        // captures Date.now() once to reuse across deduplication blocks
+        const now = Date.now();
+
         // ── Deduplication ────────────────────────────────────────────────────
         // INVARIANT: fingerprint slot is claimed BEFORE any await so that
         // concurrent calls entering capture() simultaneously (e.g. identical
@@ -177,7 +181,6 @@ export function createCapturePipeline(sharedState) {
             const isCheckout = /checkout/i.test(window.location.pathname);
 
             if (!isCheckout) {
-                const now = Date.now();
                 const cached = _fingerprintCache.get(fingerprint);
                 if (cached && (now - cached.timestamp < 60000)) {
                     cached.count++;
@@ -189,7 +192,6 @@ export function createCapturePipeline(sharedState) {
         }
 
         if (++_captureCount % 50 === 0) {
-            const now = Date.now();
             for (const [key, entry] of _fingerprintCache) {
                 if (now - entry.timestamp > 120000) _fingerprintCache.delete(key);
             }
