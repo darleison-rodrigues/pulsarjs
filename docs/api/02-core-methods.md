@@ -9,9 +9,12 @@
 | `endpoint` | `string` | `https://api.pulsarjs.com/v1/ingest` | Ingestion endpoint URL |
 | `storefrontType` | `string` | `'PWA_KIT'` | `PWA_KIT` or `SITEGENESIS` |
 | `platform` | `string\|object` | `'sfcc'` | Platform provider. Built-in: `'sfcc'`. Pass an object for custom providers (see below). |
+| `enabled` | `boolean` | `true` | Whether the SDK is enabled. <!-- DOCS: C1 --> |
 | `sampleRate` | `number` | `1.0` | Session sampling rate (0–1) |
 | `beforeSend` | `function` | `null` | Async hook to filter/enrich events. Return `null` to drop. |
 | `beforeSendTimeout` | `number` | `2000` | Max ms to wait for `beforeSend` |
+| `allowUnconfirmedConsent` | `boolean` | `false` | Whether to allow unconfirmed consent <!-- DOCS: C1 --> |
+| `nonce` | `string` | `null` | Nonce string <!-- DOCS: C1 --> |
 | `endpointFilter` | `RegExp` | from provider | Regex to filter which fetch/XHR calls are monitored. Overrides provider default. |
 | `criticalSelectors` | `string[]` | Error UI selectors | CSS selectors for MutationObserver (error UI detection) |
 | `maxBreadcrumbs` | `number` | `100` | Max breadcrumbs in circular buffer |
