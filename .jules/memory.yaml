@@ -10,6 +10,16 @@
   failure_count: 0
   last_used: 2026-03-20
   weight: 1.0
+
+- id: mem-002
+  domain: documentation
+  trigger: "checking README.md for stale content"
+  pattern: >
+    The README.md file contains stale information about the number of causal relationships (saying there are 5 instead of 13 total across SDK hints and server computations).
+  implication: "Always ensure the causal relationships in README.md align with docs/api/06-edge-taxonomy.md."
+  source: scribe
+  confirmed: 2025-05-24
+    recurrence: 1
 - id: mem-002
   domain: documentation
   trigger: "Compare docs/API.md init signature and config options with actual validation in packages/sdk/src/index.js or packages/sdk/src/core/config.js."
