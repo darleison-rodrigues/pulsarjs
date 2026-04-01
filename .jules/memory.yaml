@@ -10,6 +10,16 @@
   failure_count: 0
   last_used: 2026-03-20
   weight: 1.0
+- id: mem-002
+  domain: documentation
+  trigger: "Compare docs/API.md init signature and config options with actual validation in packages/sdk/src/index.js or packages/sdk/src/core/config.js."
+  pattern: >
+    The documentation for `Pulsar.init(config)` was missing several configuration options
+    (`enabled`, `allowUnconfirmedConsent`, `nonce`) that are present in the core configuration (`DEFAULT_CONFIG` in `packages/sdk/src/core/config.js`).
+  implication: "Always ensure docs reflect the exact config accepted by `validateConfig` and the `DEFAULT_CONFIG`."
+    source: scribe
+  confirmed: 2026-03-24
+  recurrence: 1
 - id: mem-003
   domain: documentation
   trigger: "Compare README.md with package.json."
