@@ -30,6 +30,10 @@
   code: P9
   file: packages/sdk/src/core/capture.js
   line: 180
+- date: 2026-03-25
+  code: P3
+  file: packages/sdk/src/collectors/interactions.js
+  line: 45
   status: fixed
   pr: null
   skipped_reason: ""
