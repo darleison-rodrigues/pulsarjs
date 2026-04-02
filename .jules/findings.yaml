@@ -26,3 +26,17 @@
   status: fixed
   pr: null
   skipped_reason: ""
+- date: 2026-04-02
+  code: H4
+  file: packages/sdk/src/index.js
+  line: 192
+  status: fixed
+  pr: null
+  skipped_reason: ""
+- date: 2026-04-02
+  code: H4
+  file: packages/sdk/src/index.js
+  line: 256
+  status: fixed
+  pr: null
+  skipped_reason: ""
