@@ -55,6 +55,23 @@ const context = Pulsar.getContext();
 console.log(context.sessionID);
 ```
 
+### `Pulsar.setTag(key, value)`
+<!-- DOCS: C2 -->
+
+Adds a tag to the global scope. This is a proxy for `Pulsar.getScope().setTag(key, value)`.
+
+### `Pulsar.setUser(id, email, metadata?)`
+
+Sets user context on the global scope. This is a proxy for `Pulsar.getScope().setUser({ id, email, ...metadata })`.
+
+### `Pulsar.addBreadcrumb(category, message, level?)`
+
+Adds a breadcrumb to the global scope. This is a proxy for `Pulsar.getScope().addBreadcrumb({ category, message, level })`.
+
+### `Pulsar.flush()`
+
+Manually trigger a flush of the event queue. Returns a `Promise<void>`. Useful for merchants who need guaranteed delivery before a redirect (e.g. checkout submit).
+
 ---
 
 ## Interacting with the Scope
@@ -63,11 +80,25 @@ The Scope API enables context tracking and session tagging that are forwarded to
 
 ### `Pulsar.getScope()`
 
-Returns the current `Scope` instance for tag/breadcrumb management:
+Returns the current `Scope` instance for tag/breadcrumb management. Available methods on the `Scope` instance:
+
+- `setTag(key, value)`
+- `setUser(user)`
+- `setExtra(key, value)`
+- `setMaxBreadcrumbs(max)`
+- `addBreadcrumb(crumb)`
 
 ```javascript
 // Add experiment details
 Pulsar.getScope().setTag('experiment', 'v2_checkout');
 // Group events by a user characteristic (never add raw PII)
 Pulsar.getScope().setUser({ segment: 'vip' });
+// Set maximum breadcrumbs to retain
+Pulsar.getScope().setMaxBreadcrumbs(50);
+// Add a manual breadcrumb
+Pulsar.getScope().addBreadcrumb({
+    category: 'ui.click',
+    message: 'User expanded details',
+    level: 'info'
+});
 ```

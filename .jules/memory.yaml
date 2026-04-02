@@ -72,3 +72,13 @@
   source: scribe
   confirmed: 2026-03-24
   recurrence: 1
+
+- id: mem-004
+  domain: documentation
+  trigger: "Compare docs/API.md scope methods with packages/sdk/src/core/scope.js and index.js"
+  pattern: >
+    API contract drift observed (C2): The `Scope` methods (`setExtra`, `setMaxBreadcrumbs`, `addBreadcrumb`) from `packages/sdk/src/core/scope.js` and top-level proxy methods (`setTag`, `setUser`, `addBreadcrumb`, `flush`) from `packages/sdk/src/index.js` were omitted from `docs/api/02-core-methods.md`.
+  implication: "Always ensure docs reflect the exact Scope methods available in `packages/sdk/src/core/scope.js` and `packages/sdk/src/index.js`."
+  source: scribe
+  confirmed: 2026-04-01
+  recurrence: 1
