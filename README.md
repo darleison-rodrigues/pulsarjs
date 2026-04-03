@@ -122,11 +122,11 @@ PulsarJS operates as a **data processor** under merchant instruction. Legal basi
 pnpm install
 
 # Build
-pnpm run build
+pnpm --recursive run build
 
 # Test
-pnpm run test
-pnpm run typecheck
+pnpm --recursive --if-present run test
+pnpm --recursive --if-present run typecheck
 
 # Lint
 pnpm exec eslint .
