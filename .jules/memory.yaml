@@ -72,3 +72,13 @@
   source: scribe
   confirmed: 2026-03-24
   recurrence: 1
+
+- id: mem-004
+  domain: documentation
+  trigger: "Compare README.md with the actual docs directory structure."
+  pattern: >
+    The documentation cross-references in README.md (such as docs/API.md, docs/GUIDE.md, docs/EXAMPLES.md) point to files that no longer exist due to directory restructuring.
+  implication: "Always ensure documentation references in README.md point to the correctly nested markdown files according to docs/INDEX.md (e.g., docs/api/02-core-methods.md, docs/guide/14-examples.md)."
+  source: scribe
+  confirmed: 2026-04-03
+  recurrence: 1
