@@ -19,3 +19,10 @@
   status: fixed
   pr: 50
   skipped_reason: ""
+- date: $(date +%Y-%m-%d)
+  code: M2
+  file: packages/sdk/src/core/capture.js
+  line: 191
+  status: fixed
+  pr: null
+  skipped_reason: ""

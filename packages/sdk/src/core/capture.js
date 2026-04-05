@@ -188,6 +188,11 @@ export function createCapturePipeline(sharedState) {
         }
 
         const eventId = `${state.sessionID}:${++_eventSeq}`;
+
+        // SECURITY: M2
+        const rawEventType = String(errorData.event_type || errorData.error_type || 'UNKNOWN');
+        const rawMessage = state.sanitizer.redactPII(errorData.message || 'Unknown error');
+
         let payload = {
             event_id: eventId,
             client_id: state.config.clientId,
@@ -196,8 +201,8 @@ export function createCapturePipeline(sharedState) {
             session_id: state.sessionID,
             url: state.sanitizer.sanitizeUrl(window.location.href),
             timestamp: new Date().toISOString(),
-            event_type: errorData.event_type || errorData.error_type || 'UNKNOWN',
-            message: state.sanitizer.redactPII(errorData.message || 'Unknown error'),
+            event_type: rawEventType.substring(0, 100),
+            message: rawMessage.substring(0, 512),
             response_snippet: errorData.response_snippet
                 ? state.sanitizer.redactPII(errorData.response_snippet)
                 : null,
@@ -211,6 +216,10 @@ export function createCapturePipeline(sharedState) {
             scope: localScope.getScopeData(),
             dropped_events: state.droppedEventsCount
         };
+
+        if (payload.metadata && typeof payload.metadata.selector === 'string') {
+            payload.metadata.selector = payload.metadata.selector.substring(0, 256);
+        }
 
         // PUL-028: edge hints — only include when present (not null)
         if (errorData.caused_by) {
