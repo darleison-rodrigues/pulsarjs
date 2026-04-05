@@ -95,7 +95,9 @@ Pulsar.init({ clientId: '...', platform: 'sfcc' });        // explicit (same as 
 Pulsar.init({ clientId: '...' });                           // SFCC is the default
 ```
 
+<!-- DOCS: M2 -->
 For custom providers and more examples, see [Platform Providers & Examples](docs/guide/14-examples.md).
+<!-- DOCS: M2 -->
 
 ---
 
