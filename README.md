@@ -43,12 +43,10 @@ That's it. No npm install, no build step, no consent banner required.
 ## 📖 Documentation
 
 <!-- DOCS: M2 -->
-* [API Reference](docs/INDEX.md) — Full configuration options, public methods, and event schemas.
+* [API Reference](docs/INDEX.md#api-reference) — Full configuration options, public methods, and event schemas.
 * [Platform Providers & Examples](docs/guide/14-examples.md) — How to integrate with SFCC, Shopify, React, and Custom platforms.
-* [Architecture & Guide](docs/INDEX.md) — Deep dive into the SDK internals, causality engine, and architecture.
+* [Architecture & Guide](docs/INDEX.md#pulsarjs-architecture--internal-guide) — Deep dive into the SDK internals, causality engine, and architecture.
 * [Custom Export](docs/guide/15-export.md) — How to export event data to your own S3 bucket or data lake.
-* [Changelog](docs/INDEX.md) — Version history and release notes.
-<!-- DOCS: M2 -->
 
 ---
 
