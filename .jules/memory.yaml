@@ -57,11 +57,11 @@
   trigger: "Compare README.md with package.json."
   pattern: >
     A structural fact about this codebase, confirmed mechanically
-    by comparing source code with documentation directly. The setup instructions in README.md incorrectly specified running npm scripts within the package directory with a filter, rather than using the correct workspace commands defined in the root package.json.
+    by comparing source code with documentation directly. The setup instructions in README.md incorrectly specified `pnpm run build` and `pnpm run test`, rather than using the correct workspace commands defined in the root package.json (`pnpm --recursive run build`, etc).
   implication: "Always ensure the setup instructions in README.md match the scripts defined in the root package.json."
   source: scribe
-  confirmed: 2026-03-27
-  recurrence: 1
+  confirmed: 2026-04-03
+  recurrence: 2
 - id: mem-002
   domain: documentation
   trigger: "Updating Pulsar.init config options in docs/api/02-core-methods.md"
