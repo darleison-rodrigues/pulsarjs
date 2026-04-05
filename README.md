@@ -42,11 +42,13 @@ That's it. No npm install, no build step, no consent banner required.
 
 ## 📖 Documentation
 
-* [API Reference](docs/API.md) — Full configuration options, public methods, and event schemas.
-* [Platform Providers & Examples](docs/EXAMPLES.md) — How to integrate with SFCC, Shopify, React, and Custom platforms.
-* [Architecture & Guide](docs/GUIDE.md) — Deep dive into the SDK internals, causality engine, and architecture.
-* [Custom Export](docs/EXPORT.md) — How to export event data to your own S3 bucket or data lake.
-* [Changelog](docs/CHANGELOG.md) — Version history and release notes.
+<!-- DOCS: M2 -->
+* [API Reference](docs/INDEX.md) — Full configuration options, public methods, and event schemas.
+* [Platform Providers & Examples](docs/guide/14-examples.md) — How to integrate with SFCC, Shopify, React, and Custom platforms.
+* [Architecture & Guide](docs/INDEX.md) — Deep dive into the SDK internals, causality engine, and architecture.
+* [Custom Export](docs/guide/15-export.md) — How to export event data to your own S3 bucket or data lake.
+* [Changelog](docs/INDEX.md) — Version history and release notes.
+<!-- DOCS: M2 -->
 
 ---
 
@@ -95,7 +97,9 @@ Pulsar.init({ clientId: '...', platform: 'sfcc' });        // explicit (same as 
 Pulsar.init({ clientId: '...' });                           // SFCC is the default
 ```
 
-For custom providers and more examples, see [Platform Providers & Examples](docs/EXAMPLES.md).
+<!-- DOCS: M2 -->
+For custom providers and more examples, see [Platform Providers & Examples](docs/guide/14-examples.md).
+<!-- DOCS: M2 -->
 
 ---
 
