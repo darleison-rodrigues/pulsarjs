@@ -57,11 +57,11 @@
   trigger: "Compare README.md with package.json."
   pattern: >
     A structural fact about this codebase, confirmed mechanically
-    by comparing source code with documentation directly. The setup instructions in README.md incorrectly specified running npm scripts within the package directory with a filter, rather than using the correct workspace commands defined in the root package.json.
+    by comparing source code with documentation directly. The setup instructions in README.md incorrectly specified `pnpm run build` and `pnpm run test`, rather than using the correct workspace commands defined in the root package.json (`pnpm --recursive run build`, etc).
   implication: "Always ensure the setup instructions in README.md match the scripts defined in the root package.json."
   source: scribe
-  confirmed: 2026-03-27
-  recurrence: 1
+  confirmed: 2026-04-03
+  recurrence: 2
 - id: mem-002
   domain: documentation
   trigger: "Updating Pulsar.init config options in docs/api/02-core-methods.md"
@@ -81,4 +81,22 @@
   implication: "Always ensure docs reflect the exact Scope methods available in `packages/sdk/src/core/scope.js` and `packages/sdk/src/index.js`."
   source: scribe
   confirmed: 2026-04-01
+  recurrence: 1
+- id: mem-004-2
+  domain: documentation
+  trigger: "Compare README.md with the actual docs directory structure."
+  pattern: >
+    The documentation cross-references in README.md (such as docs/API.md, docs/GUIDE.md, docs/EXAMPLES.md) point to files that no longer exist due to directory restructuring.
+  implication: "Always ensure documentation references in README.md point to the correctly nested markdown files according to docs/INDEX.md (e.g., docs/api/02-core-methods.md, docs/guide/14-examples.md)."
+  source: scribe
+  confirmed: 2026-04-03
+  recurrence: 1
+- id: mem-005
+  domain: documentation
+  trigger: "Compare links in README.md with actual files in docs/"
+  pattern: >
+    Missing cross-references observed (M2): README.md contained broken links to non-existent files such as docs/API.md, docs/EXAMPLES.md, docs/GUIDE.md, and docs/EXPORT.md. These have been updated to point to docs/INDEX.md or their corresponding guide documents.
+  implication: "Always ensure links in README.md point to correct paths and avoid referencing files that have been removed, renamed, or consolidated."
+  source: scribe
+  confirmed: 2026-04-05
   recurrence: 1
