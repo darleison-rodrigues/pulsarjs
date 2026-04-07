@@ -100,3 +100,14 @@
   source: scribe
   confirmed: 2026-04-05
   recurrence: 1
+
+- id: mem-C2-drift
+  domain: documentation
+  trigger: "Compare docs/API.md scope methods with packages/sdk/src/core/scope.js"
+  pattern: >
+    A structural fact about this codebase, confirmed mechanically
+    by comparing source code with documentation directly. The `docs/API.md` file does not exist, and the file `docs/api/02-core-methods.md` (which contains scope methods) is outside the scope of allowed documentation changes.
+  implication: "I must skip modifying `docs/api/02-core-methods.md` because it is outside the allowed list."
+  source: scribe
+  confirmed: 2026-04-03
+  recurrence: 1
