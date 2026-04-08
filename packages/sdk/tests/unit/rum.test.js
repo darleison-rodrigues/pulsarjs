@@ -16,7 +16,7 @@ describe('RUM Collector', () => {
             isInitialized: true,
             queue: [],
             flush: vi.fn(),
-            extractPlatformContext: vi.fn(() => ({})),
+            extractContext: vi.fn(() => ({})),
             captureEnvironment: vi.fn(() => ({})),
             nextEventId: vi.fn(() => 'sess-123:1')
         };

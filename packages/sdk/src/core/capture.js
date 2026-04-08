@@ -206,7 +206,7 @@ export function createCapturePipeline(sharedState) {
         let safeMessage = state.sanitizer.redactPII(errorData.message || 'Unknown error');
         if (safeMessage.length > 512) safeMessage = safeMessage.slice(0, 512);
 
-        let safeMetadata = { ...errorData.metadata, ...state.extractPlatformContext() };
+        let safeMetadata = { ...errorData.metadata, ...state.extractContext() };
         if (typeof safeMetadata.selector === 'string' && safeMetadata.selector.length > 256) {
             safeMetadata.selector = safeMetadata.selector.slice(0, 256);
         }

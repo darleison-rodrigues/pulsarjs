@@ -19,7 +19,7 @@ describe('Product View Tracking (PUL-030)', () => {
                 getScopeData: () => ({})
             },
             capture: vi.fn().mockResolvedValue('event-123'),
-            extractPlatformContext: () => ({})
+            extractContext: () => ({})
         };
 
         // Mock window.location

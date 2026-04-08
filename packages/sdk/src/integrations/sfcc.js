@@ -13,17 +13,30 @@ export { SFCCProvider, getCookie };
  * Kept for backward compatibility with code that imports extractPlatformContext directly.
  */
 export function extractPlatformContext(extractCampaigns, pageTypes) {
-    const context = SFCCProvider.extractContext();
+    try {
+        const context = SFCCProvider.extractContext();
 
-    // Legacy behavior: inferPageType was called inside extractPlatformContext
-    const pageInfo = inferPageType(window.location.pathname, pageTypes);
-    context.pageType = pageInfo.type !== 'Other' ? pageInfo.type : null;
+        // Legacy behavior: inferPageType was called inside extractPlatformContext
+        // PUL-027: Fallback to provider defaults if pageTypes missing
+        const pageInfo = inferPageType(
+            window.location.pathname,
+            pageTypes || SFCCProvider.pageTypes || []
+        );
+        context.pageType = pageInfo.type !== 'Other' ? pageInfo.type : null;
 
-    // Legacy behavior: campaign extraction was coupled to platform context
-    if (typeof extractCampaigns === 'function') {
-        const campaign = extractCampaigns();
-        if (campaign) context.campaign = campaign;
+        // Legacy behavior: campaign extraction was coupled to platform context
+        if (typeof extractCampaigns === 'function') {
+            const campaign = extractCampaigns();
+            if (campaign) context.campaign = campaign;
+        }
+
+        return context;
+    } catch (e) {
+        // Defensive coding: never crash host page
+        // eslint-disable-next-line no-console
+        if (typeof window !== 'undefined' && window.Pulsar?.config?.debug) {
+            console.warn('[Pulsar] extractPlatformContext failed', e);
+        }
+        return {};
     }
-
-    return context;
 }
