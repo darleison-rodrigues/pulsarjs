@@ -127,8 +127,8 @@ const Pulsar = (function () {
             _rageClickHandler: null,
 
             // Bound helpers for modules
-            // extractPlatformContext is re-bound inside init() after provider resolution
-            extractPlatformContext: () => ({}),
+            // extractContext is re-bound inside init() after provider resolution
+            extractContext: () => ({}),
             captureEnvironment: captureEnvironment,
             device: null, // set once at init() — device cohort + hints (PUL-026)
             capture: null, // set after pipeline creation
@@ -173,15 +173,15 @@ const Pulsar = (function () {
                         sanitizer.registerPiiPatterns(provider.piiPatterns);
                     }
 
-                    // Bind extractPlatformContext with resolved provider
-                    state.extractPlatformContext = () => {
+                    // Bind extractContext with resolved provider
+                    state.extractContext = () => {
                         try {
                             const ctx = provider.extractContext();
                             const campaign = extractCampaigns();
                             if (campaign) ctx.campaign = campaign;
                             return ctx;
                         } catch (e) {
-                            if (config?.debug) console.warn('[Pulsar] extractPlatformContext failed', e);
+                            if (config?.debug) console.warn('[Pulsar] extractContext failed', e);
                             return {};
                         }
                     };

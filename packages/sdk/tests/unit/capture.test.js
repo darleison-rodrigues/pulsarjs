@@ -30,7 +30,7 @@ describe('Pulsar Capture Pipeline', () => {
             productRefs: ['prod-1', 'prod-2'],
             droppedEventsCount: 0,
             droppedSinceLastFlush: 0,
-            extractPlatformContext: () => ({}),
+            extractContext: () => ({}),
             captureEnvironment: () => ({}),
             device: {},
             sanitizer: {

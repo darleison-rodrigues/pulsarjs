@@ -196,7 +196,7 @@ export function captureRUM(state, url = window.location.href) {
             timestamp: new Date().toISOString(),
             event_type: 'RUM_METRICS',
             metrics: { ...webVitals },       // snapshot — not live reference
-            metadata: state.extractPlatformContext(),
+            metadata: state.extractContext(),
             environment: state.captureEnvironment()
         };
 

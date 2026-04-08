@@ -164,7 +164,7 @@ describe('SDK Hardening - Defensive Coding', () => {
             sessionID: 'sess-1',
             queue: [],
             globalScope: { getScopeData: () => ({}) },
-            extractPlatformContext: () => ({}),
+            extractContext: () => ({}),
             captureEnvironment: () => ({}),
             device: {},
             sanitizer: createSanitizer()
@@ -196,7 +196,7 @@ describe('SDK Hardening - Defensive Coding', () => {
             sessionID: 'sess-1',
             queue: [],
             globalScope: { getScopeData: () => ({}) },
-            extractPlatformContext: () => ({}),
+            extractContext: () => ({}),
             captureEnvironment: () => ({}),
             device: {},
             sanitizer: createSanitizer()
@@ -214,7 +214,7 @@ describe('SDK Hardening - Defensive Coding', () => {
         vi.useRealTimers();
     });
 
-    it('should gracefully degrade if extractPlatformContext throws', () => {
+    it('should gracefully degrade if extractContext throws', () => {
         // Mock a provider that throws on extractContext
         vi.doMock('../../src/providers/provider.js', () => ({
             resolveProvider: () => ({
