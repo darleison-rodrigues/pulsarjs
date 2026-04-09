@@ -100,3 +100,13 @@
   source: scribe
   confirmed: 2026-04-05
   recurrence: 1
+
+- id: mem-006
+  domain: documentation
+  trigger: "Compare docs/API.md init signature and config options with actual validation in packages/sdk/src/index.js or packages/sdk/src/core/config.js."
+  pattern: >
+    API contract drift observed (C1): The `Pulsar.init(config)` documentation in `docs/api/02-core-methods.md` contained multiple duplicate entries for `allowUnconfirmedConsent` and `nonce`.
+  implication: "Always ensure the configuration table in API docs strictly matches the `DEFAULT_CONFIG` in `src/core/config.js` without any duplicate entries."
+  source: scribe
+  confirmed: 2026-04-06
+  recurrence: 1
