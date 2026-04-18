@@ -100,3 +100,12 @@
   source: scribe
   confirmed: 2026-04-05
   recurrence: 1
+- id: mem-006
+  domain: documentation
+  trigger: "comparing configuration options in docs/api/02-core-methods.md with packages/sdk/src/core/config.js"
+  pattern: >
+    API contract drift observed (C1): SDK `criticalSelectors`, `maxBreadcrumbs`, `slowApiThreshold`, `rageClickThreshold`, `rageClickWindow`, `scrollDepthMilestones` and other config options were present in code but omitted or duplicated in public API documentation.
+  implication: "Always verify `DEFAULT_CONFIG` in `packages/sdk/src/core/config.js` when maintaining or editing configuration docs in `docs/api/02-core-methods.md`."
+  source: scribe
+  confirmed: 2026-04-18
+  recurrence: 1
