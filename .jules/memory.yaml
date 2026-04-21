@@ -100,3 +100,13 @@
   source: scribe
   confirmed: 2026-04-05
   recurrence: 1
+
+- id: mem-006
+  domain: documentation
+  trigger: "Compare docs/API.md scope methods with packages/sdk/src/core/scope.js."
+  pattern: >
+    API contract drift observed (C2): The `Scope` methods (`getScopeData`, `clone`) from `packages/sdk/src/core/scope.js` were omitted from `docs/api/02-core-methods.md`. Confirmed mechanically by reading source code.
+  implication: "Always ensure docs strictly reflect all methods exposed by the `Scope` instance in `packages/sdk/src/core/scope.js`."
+  source: scribe
+  confirmed: 2026-04-21
+  recurrence: 1

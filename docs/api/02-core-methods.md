@@ -82,11 +82,15 @@ The Scope API enables context tracking and session tagging that are forwarded to
 
 Returns the current `Scope` instance for tag/breadcrumb management. Available methods on the `Scope` instance:
 
+<!-- DOCS: C2 -->
 - `setTag(key, value)`
 - `setUser(user)`
 - `setExtra(key, value)`
 - `setMaxBreadcrumbs(max)`
 - `addBreadcrumb(crumb)`
+- `getScopeData()`
+- `clone()`
+<!-- DOCS: C2 -->
 
 ```javascript
 // Add experiment details
