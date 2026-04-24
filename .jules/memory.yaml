@@ -100,3 +100,12 @@
   source: scribe
   confirmed: 2026-04-05
   recurrence: 1
+- id: mem-006
+  domain: documentation
+  trigger: "Compare docs/API.md scope methods with packages/sdk/src/core/scope.js"
+  pattern: >
+    API contract drift observed (C2): The `Pulsar.setUser` and `Pulsar.addBreadcrumb` signatures in `docs/api/02-core-methods.md` did not match the default parameters defined in `packages/sdk/src/index.js` (`metadata = {}` and `level = 'info'`).
+  implication: "Always ensure docs reflect the exact parameter types and defaults from `packages/sdk/src/index.js` for Scope proxy methods."
+  source: scribe
+  confirmed: 2026-04-24
+  recurrence: 1
