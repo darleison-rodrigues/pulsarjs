@@ -60,11 +60,13 @@ console.log(context.sessionID);
 
 Adds a tag to the global scope. This is a proxy for `Pulsar.getScope().setTag(key, value)`.
 
-### `Pulsar.setUser(id, email, metadata?)`
+### `Pulsar.setUser(id, email, metadata = {})`
+<!-- DOCS: C2 -->
 
 Sets user context on the global scope. This is a proxy for `Pulsar.getScope().setUser({ id, email, ...metadata })`.
 
-### `Pulsar.addBreadcrumb(category, message, level?)`
+### `Pulsar.addBreadcrumb(category, message, level = 'info')`
+<!-- DOCS: C2 -->
 
 Adds a breadcrumb to the global scope. This is a proxy for `Pulsar.getScope().addBreadcrumb({ category, message, level })`.
 
