@@ -100,3 +100,13 @@
   source: scribe
   confirmed: 2026-04-05
   recurrence: 1
+
+- id: mem-006
+  domain: documentation
+  trigger: "Compare CLAUDE.md module map with actual packages/sdk/src/ structure."
+  pattern: >
+    The CLAUDE.md file was entirely missing, meaning the module map and known issues (H2, H4) were not tracked as expected by the backlog.
+  implication: "Always ensure CLAUDE.md exists and its module map matches docs/guide/04-repository-structure.md and actual packages/sdk/src/ contents."
+  source: scribe
+  confirmed: 2026-04-10
+  recurrence: 1
