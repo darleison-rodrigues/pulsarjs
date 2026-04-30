@@ -100,3 +100,13 @@
   source: scribe
   confirmed: 2026-04-05
   recurrence: 1
+
+- id: mem-006
+  domain: documentation
+  trigger: "Compare campaign click tracking in README.md with extractCampaigns() in environment.js"
+  pattern: >
+    API contract drift observed (C1): The README.md incorrectly states there are 16 click IDs tracked, while packages/sdk/src/utils/environment.js actually extracts 6 parameters.
+  implication: "Always verify the tracked parameters array in extractCampaigns when maintaining documentation regarding campaign attribution."
+  source: scribe
+  confirmed: 2026-04-30
+  recurrence: 1

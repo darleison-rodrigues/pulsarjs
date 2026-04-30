@@ -73,7 +73,7 @@ The SDK captures **15 event types**. The SDK hints at **8 causal relationships**
 
 | Category | Events | Description |
 |---|---|---|
-| **Navigation** | `PAGE_VIEW` `CAMPAIGN_ENTRY` `TAB_VISIBILITY` | Page loads, SPA routing, campaign attribution (16 click IDs), tab focus |
+| **Navigation** | `PAGE_VIEW` `CAMPAIGN_ENTRY` `TAB_VISIBILITY` | Page loads, SPA routing, campaign attribution (6 click IDs), tab focus <!-- DOCS: C1 --> |
 | **Interaction** | `SCROLL_DEPTH` `RAGE_CLICK` | Engagement depth (25/50/75/100%), frustration detection |
 | **Commerce** | `COMMERCE_ACTION` | Commerce API detection: cart_add, cart_update, cart_remove, checkout, search |
 | **Error** | `JS_CRASH` `API_FAILURE` `NETWORK_ERROR` `UI_FAILURE` `CUSTOM_EXCEPTION` | Crashes, non-2xx APIs, network failures, error UI (MutationObserver) |
