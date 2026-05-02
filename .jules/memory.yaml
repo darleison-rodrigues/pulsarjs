@@ -100,3 +100,12 @@
   source: scribe
   confirmed: 2026-04-05
   recurrence: 1
+- id: mem-006
+  domain: documentation
+  trigger: "Compare docs/API.md init signature and config options with actual validation in packages/sdk/src/index.js"
+  pattern: >
+    API contract drift observed (C1): `docs/api/02-core-methods.md` had duplicate entries for `nonce` and `allowUnconfirmedConsent` and was missing `commerceActions` and `pageTypes` from `packages/sdk/src/core/config.js`.
+  implication: "Always verify `DEFAULT_CONFIG` in `packages/sdk/src/core/config.js` when maintaining or editing configuration docs in `docs/api/02-core-methods.md`."
+  source: scribe
+  confirmed: 2026-05-02
+  recurrence: 1
