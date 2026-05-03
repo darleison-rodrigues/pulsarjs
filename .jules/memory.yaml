@@ -100,3 +100,13 @@
   source: scribe
   confirmed: 2026-04-05
   recurrence: 1
+
+- id: mem-006
+  domain: documentation
+  trigger: "Compare docs/api/02-core-methods.md init signature and config options with actual validation in packages/sdk/src/core/config.js."
+  pattern: >
+    API contract drift observed (C1): The documentation for `Pulsar.init(config)` had duplicate entries for `allowUnconfirmedConsent` and `nonce` and was missing the `commerceActions` and `pageTypes` properties that are supported user overrides as defined in `DEFAULT_CONFIG`.
+  implication: "Always ensure docs exactly match the properties in `DEFAULT_CONFIG` defined in `packages/sdk/src/core/config.js` without omitting supported overrides or duplicating rows."
+  source: scribe
+  confirmed: 2026-05-03
+  recurrence: 1
