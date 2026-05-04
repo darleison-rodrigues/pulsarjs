@@ -56,12 +56,11 @@
   domain: documentation
   trigger: "Compare README.md with package.json."
   pattern: >
-    A structural fact about this codebase, confirmed mechanically
-    by comparing source code with documentation directly. The setup instructions in README.md incorrectly specified `pnpm run build` and `pnpm run test`, rather than using the correct workspace commands defined in the root package.json (`pnpm --recursive run build`, etc).
-  implication: "Always ensure the setup instructions in README.md match the scripts defined in the root package.json."
+    The build and test scripts defined in the root `package.json` use the `--recursive` flag internally (e.g., `"build": "pnpm --recursive run build"`). Therefore, documentation instructing users to build or test the project from the root should use `pnpm run build` and `pnpm run test`, rather than redundantly repeating the `--recursive` flag.
+  implication: "Always ensure the setup instructions in README.md use standard pnpm lifecycle commands (like `pnpm run build`) that delegate to the root package.json scripts, rather than duplicating internal flags."
   source: scribe
   confirmed: 2026-04-03
-  recurrence: 2
+  recurrence: 3
 - id: mem-002
   domain: documentation
   trigger: "Updating Pulsar.init config options in docs/api/02-core-methods.md"
