@@ -79,6 +79,7 @@ Manually trigger a flush of the event queue. Returns a `Promise<void>`. Useful f
 The Scope API enables context tracking and session tagging that are forwarded to all telemetry events. This enables richer cohort aggregation.
 
 ### `Pulsar.getScope()`
+<!-- DOCS: C2 -->
 
 Returns the current `Scope` instance for tag/breadcrumb management. Available methods on the `Scope` instance:
 
@@ -87,6 +88,8 @@ Returns the current `Scope` instance for tag/breadcrumb management. Available me
 - `setExtra(key, value)`
 - `setMaxBreadcrumbs(max)`
 - `addBreadcrumb(crumb)`
+- `getScopeData()`
+- `clone()`
 
 ```javascript
 // Add experiment details
