@@ -17,18 +17,15 @@
 | `nonce` | `string` | `null` | CSP nonce for dynamic script tags |
 | `beforeSend` | `function` | `null` | Async hook to filter/enrich events. Return `null` to drop. |
 | `beforeSendTimeout` | `number` | `2000` | Max ms to wait for `beforeSend` |
-| `allowUnconfirmedConsent` | `boolean` | `false` | Whether to allow unconfirmed consent <!-- DOCS: C1 --> |
-| `nonce` | `string` | `null` | Nonce string <!-- DOCS: C1 --> |
+| `commerceActions` | `string[]` | from provider | Overrides the provider's default list of commerce action patterns |
+| `pageTypes` | `object` | from provider | Overrides the provider's default page type mapping |
 | `endpointFilter` | `RegExp` | from provider | Regex to filter which fetch/XHR calls are monitored. Overrides provider default. |
-| `criticalSelectors` | `string[]` | Error UI selectors | CSS selectors for MutationObserver (error UI detection) |
-| `nonce` | `string` | `null` | CSP nonce for any dynamically created elements. |
+| `criticalSelectors` | `string[]` | `['.error-message', '.alert-danger', '.checkout-error', '.toast-error']` | CSS selectors for MutationObserver (error UI detection) |
 | `maxBreadcrumbs` | `number` | `100` | Max breadcrumbs in circular buffer |
 | `slowApiThreshold` | `number` | `1000` | Latency threshold (ms) for API_LATENCY events |
 | `rageClickThreshold` | `number` | `3` | Clicks within window to trigger RAGE_CLICK |
 | `rageClickWindow` | `number` | `1000` | Time window (ms) for rage click detection |
 | `scrollDepthMilestones` | `number[]` | `[25, 50, 75, 100]` | SCROLL_DEPTH trigger points |
-| `allowUnconfirmedConsent` | `boolean` | `false` | Allow event capture without confirmed consent |
-| `nonce` | `string` | `null` | Nonce for Content Security Policy |
 | `debug` | `boolean` | `false` | Console logging |
 <!-- DOCS: C1 -->
 

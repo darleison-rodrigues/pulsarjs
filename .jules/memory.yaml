@@ -100,3 +100,13 @@
   source: scribe
   confirmed: 2026-04-05
   recurrence: 1
+
+- id: mem-006
+  domain: documentation
+  trigger: "documenting configuration options in docs/api/02-core-methods.md"
+  pattern: >
+    API contract drift observed (C1): The `docs/api/02-core-methods.md` config table had duplicate entries for `allowUnconfirmedConsent` and `nonce`, and was missing fields for `commerceActions` and `pageTypes` (provider overrides).
+  implication: "Always ensure the configuration table in API docs is deduplicated and matches `DEFAULT_CONFIG` exactly, including provider-override properties."
+  source: scribe
+  confirmed: 2026-05-18
+  recurrence: 1
